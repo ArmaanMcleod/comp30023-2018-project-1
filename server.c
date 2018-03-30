@@ -45,12 +45,11 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /* Check port number range */
     if (portno < 0 || portno > MAX_PORTS) {
         fprintf(stderr, "ERROR, portno out of range\n");
         exit(EXIT_FAILURE);
     }
-
-    
 
     exit(EXIT_SUCCESS);
 }
