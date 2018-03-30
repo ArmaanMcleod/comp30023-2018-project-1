@@ -4,7 +4,7 @@ OBJ    = server.o
 EXE    = server
 
 $(EXE): $(OBJ)
-	$(CC) $(CFLAGS) -o $(EXE) $(OBJ)
+    $(CC) $(CFLAGS) -o $(EXE) $(OBJ)
 
 clean:
-	rm -f $(OBJ) $(EXE)
+    rm -f $(OBJ) $(EXE)
