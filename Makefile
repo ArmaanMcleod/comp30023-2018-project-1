@@ -8,7 +8,3 @@ $(EXE): $(OBJ)
 
 clean:
 	rm -f $(OBJ) $(EXE)
-
-
-
-
