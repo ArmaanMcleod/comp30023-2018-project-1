@@ -9,9 +9,19 @@
 
 #include "server.h"
 
-int setup_socket(int portno, int max_clients) {
+int setup_listening_socket(int portno, int max_clients) {
     struct sockaddr_in serv_addr;
     int sock;
+
+     /* Setup TCP socket */
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == ERROR) {
+        fprintf(stderr, "Error: cannot open socket");
+        exit(1);
+    }
+    printf("Listening socket created.\n");
+
+    bzero(&serv_addr, sizeof serv_addr);
 
     /* Create address we're going to listen on (given port number) -
        converted to network byte order & any IP address for -
@@ -20,20 +30,12 @@ int setup_socket(int portno, int max_clients) {
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(portno);
 
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-
-    /* Setup TCP socket */
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == ERROR) {
-        fprintf(stderr, "Error: cannot open socket");
-        exit(1);
-    }
-
     /* Bind address to the socket */
     if (bind(sock, (struct sockaddr *) &serv_addr, sizeof serv_addr) == ERROR) {
         fprintf(stderr, "Error: cannot bind address to socket\n");
         exit(1);
     }
+    printf("Binding done.\n");
 
     /* Listen on socket - means we're ready to accept connections - 
        incoming connection requests will be queued */
@@ -41,15 +43,17 @@ int setup_socket(int portno, int max_clients) {
         fprintf(stderr, "Error: cannot listen on socket\n");
         exit(1);
     }
+    printf("Listening for incoming connections...\n");
 
     return sock;
 }
 
 int main(int argc, char *argv[]) {
-    int socket, cli, pid;
-    struct sockaddr_in client;
-    socklen_t clilen;
-    int portno;
+    int sockfd, newsockfd;
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof client_addr;
+    char buffer[BUFFER_SIZE];
+    int portno, n;
 
     /* Check if enough command line arguements were given */
     if (argc != 3) {
@@ -62,15 +66,35 @@ int main(int argc, char *argv[]) {
     char *endptr = NULL;
     portno = strtoul(argv[1], &endptr, BASE);
     if (portno == 0 || *endptr != '\0') {
-        fprintf(stderr, "Error: port number is not a digit\n");
+        fprintf(stderr, "Error: port number is not valid\n");
         exit(1);
     }
 
     /* Construct socket */
-    socket = setup_socket(portno, MAX_CLIENTS);
+    sockfd = setup_listening_socket(portno, MAX_CLIENTS);
 
+    /* loop that keeps fetching connections forever */
+    while (1) {
 
+        /* Accept a connection - block until a connection is ready to -
+           be accepted. Get back a new file descriptor to communicate on. */
+        newsockfd = accept(sockfd, (struct sockaddr *) &client_addr, &client_len);
+        if (newsockfd == ERROR) {
+            fprintf(stderr, "Error: cannot open socket\n");
+            continue;
+        }
 
+        bzero(buffer, BUFFER_SIZE);
+
+        n = read(newsockfd, buffer, BUFFER_SIZE - 1);
+        if (n == ERROR) {
+            fprintf(stderr, "Error: cannot read request\n");
+            continue;
+        }
+
+    }
+
+    close(sockfd);
 
     return 0;
 }

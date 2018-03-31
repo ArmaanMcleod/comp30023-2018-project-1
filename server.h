@@ -12,19 +12,6 @@
 /* Error flag */
 #define ERROR -1
 
-/* Content of http request */
-typedef struct {
-    char *method;
-    char *URI;
-    char *http_version;
-} http_request;
-
-/* Content of http response header */
-typedef struct {
-    char *status;
-    char *content_type;
-} response_header;
-
 /* Mime types */
 typedef struct {
     const char *extension;
