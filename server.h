@@ -7,11 +7,13 @@
 
 #define MAX_CLIENTS 1024
 #define BUFFER_SIZE 256
+#define MAX_PATH_LENGTH 512
 #define NUM_PARAMS 3
-#define BASE 10
 
 /* Error flag */
 #define ERROR -1
+
+#define GET_METHOD "GET"
 
 typedef struct {
     char *method;
