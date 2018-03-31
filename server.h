@@ -7,10 +7,17 @@
 
 #define MAX_CLIENTS 1024
 #define BUFFER_SIZE 256
+#define NUM_PARAMS 3
 #define BASE 10
 
 /* Error flag */
 #define ERROR -1
+
+typedef struct {
+    char *method;
+    char *URI;
+    char *httpversion;
+} http_request;
 
 /* Mime types */
 typedef struct {

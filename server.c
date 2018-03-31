@@ -48,6 +48,31 @@ int setup_listening_socket(int portno, int max_clients) {
     return sock;
 }
 
+void parse_http_request(http_request *parameters, char buffer[]) {
+    char *request[NUM_PARAMS]; 
+
+    char *temp = buffer;
+    strtok(temp, "\n");
+
+    if (temp != NULL) {
+
+        size_t count = 0;
+        char *split_string = strtok(temp, " ");
+        while (split_string != NULL) {
+            if (count < NUM_PARAMS) {
+                request[count] = split_string;
+                count++;
+            }
+            split_string = strtok(NULL, " ");
+        }
+    }
+
+    parameters->method = request[0];
+    parameters->URI = request[1];
+    parameters->httpversion = request[2];
+}
+
+
 int main(int argc, char *argv[]) {
     int sockfd, newsockfd;
     struct sockaddr_in client_addr;
@@ -91,6 +116,14 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Error: cannot read request\n");
             continue;
         }
+
+        http_request parameters;
+
+        parse_http_request(&parameters, buffer);
+
+        printf("%s\n", parameters.method);
+        printf("%s\n", parameters.URI);
+        printf("%s\n", parameters.httpversion);
 
     }
 
