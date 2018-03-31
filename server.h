@@ -5,6 +5,10 @@
 #define NOT_FOUND 404
 #define FOUND 200
 
+#define MAX_CLIENTS 1024
+#define BUFFER_SIZE 256
+#define BASE 10
+
 /* Error flag */
 #define ERROR -1
 
