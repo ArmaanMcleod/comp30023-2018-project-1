@@ -18,7 +18,7 @@ int setup_listening_socket(int portno, int max_clients) {
      /* Setup TCP socket */
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == ERROR) {
-        fprintf(stderr, "Error: cannot open socket");
+        perror("Error: cannot open socket");
         exit(EXIT_FAILURE);
     }
     printf("Listening socket created.\n");
@@ -37,13 +37,13 @@ int setup_listening_socket(int portno, int max_clients) {
        we can still use this port */
     int yes=1; 
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == ERROR) { 
-        fprintf(stderr, "Error setting socket option for reusing address\n"); 
+        perror("Error: setting socket option for reusing address"); 
         exit(EXIT_FAILURE); 
     }  
 
     /* Bind address to the socket */
     if (bind(sock, (struct sockaddr *) &serv_addr, sizeof serv_addr) == ERROR) {
-        fprintf(stderr, "Error: cannot bind address to socket\n");
+        perror("Error: cannot bind address to socket");
         exit(EXIT_FAILURE);
     }
 
@@ -53,12 +53,19 @@ int setup_listening_socket(int portno, int max_clients) {
     /* Listen on socket - means we're ready to accept connections - 
        incoming connection requests will be queued */
     if (listen(sock, max_clients) == ERROR) {
-        fprintf(stderr, "Error: cannot listen on socket\n");
+        perror("Error: cannot listen on socket");
         exit(EXIT_FAILURE);
     }
     printf("Listening for incoming connections...\n");
 
     return sock;
+}
+
+void exit_if_null(void *ptr) {
+    if (ptr == NULL) {
+        perror("Error: unexpected null pointer");
+        exit(EXIT_FAILURE);
+    }
 }
 
 /* Parses HTTP request header */
@@ -68,6 +75,7 @@ void parse_request(http_request *parameters, char *response) {
 
     /* Copy over the response */
     char *copy = strdup(response);
+    exit_if_null(copy);
 
     /* Extract just the first line */
     path = strtok_r(copy, "\n", &saveptr);
@@ -108,10 +116,7 @@ char *check_file_exists(const char *webroot, const char *path, int *status) {
 
     /* Create an array big enough for the web root and path */
     full_path = malloc(strlen(webroot) + strlen(path) + 1);
-    if (full_path == NULL) {
-        fprintf(stderr, "Error: cannot allocate space for path\n");
-        exit(1);
-    }
+    exit_if_null(full_path);
 
     /* Combine web root and path */
     strcpy(full_path, webroot);
@@ -132,19 +137,19 @@ char *check_file_exists(const char *webroot, const char *path, int *status) {
 /* Write file requested from 200 response */
 void read_write_file(int client, char *path) {
     FILE *requested_file = NULL;
-    unsigned char buffer[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE];
     size_t bytes_read = 0;
 
     /* Open contents of file in binary mode*/
     requested_file = fopen(path, "rb");
-    if (requested_file == NULL) {
-        fprintf(stderr, "Error: cannot open file\n");
-        exit(1);
-    }
+    exit_if_null(requested_file);
 
     /* Write contents of file to client socket */
     while ((bytes_read = fread(buffer, 1, sizeof buffer, requested_file)) > 0) {
-        write(client, buffer, bytes_read);
+        if (write(client, buffer, bytes_read) == ERROR) {
+            perror("Error: cannot write to socket");
+            exit(EXIT_FAILURE);
+        }
     }
 
     fclose(requested_file);
@@ -153,14 +158,21 @@ void read_write_file(int client, char *path) {
 /* Write 200 response headers */
 void write_headers(int client, const char *data, const char *defaults) {
     char *buffer = malloc(strlen(data) + strlen(defaults) + 1);
+    exit_if_null(buffer);
+
     sprintf(buffer, defaults, data);
-    write(client, buffer, strlen(buffer));
+
+    if (write(client, buffer, strlen(buffer)) == ERROR) {
+        perror("Error: cannot write to socket");
+        exit(EXIT_FAILURE);
+    }
+
+    free(buffer);
 }
 
 void construct_file_response(int client, const char *httpversion, const char *full_path, const char *status) {
     char *request_file_extension = NULL;
-
-    char *content_header = "Content-Type: %s\r\n\r\n";
+    const char *content_header = "Content-Type: %s\r\n\r\n";
 
     /* Get the file extension */
     request_file_extension = strchr(full_path, '.');
@@ -181,22 +193,21 @@ void construct_file_response(int client, const char *httpversion, const char *fu
 
 /* Processes client request for a file */
 void process_client_request(int client, const char *webroot) {
-    char copy[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE];
     http_request request;
-    int n, status_code;
+    int status_code;
 
     const char *found = "%s 200 OK\r\n";
     const char *not_found = "%s 404 Not Found\r\n";
 
-    /* Read in copy */
-    n = read(client, copy, BUFFER_SIZE - 1);
-    if (n == ERROR) {
-        fprintf(stderr, "Error: cannot read request\n");
-        exit(1);
+    /* Read in request */
+    if (read(client, buffer, BUFFER_SIZE - 1) == ERROR) {
+        perror("Error: cannot read request");
+        exit(EXIT_FAILURE);
     }
 
     /* Parse request parameters */
-    parse_request(&request, copy);
+    parse_request(&request, buffer);
 
     /* get path of requested file */
     /* only needed for 200 response */
@@ -205,7 +216,6 @@ void process_client_request(int client, const char *webroot) {
     if (status_code == FOUND) {
         construct_file_response(client, request.httpversion, path, found);
         read_write_file(client, path);
-
     } else {
         construct_file_response(client, request.httpversion, path, not_found);
     }
@@ -226,7 +236,7 @@ int main(int argc, char *argv[]) {
     /* Check if enough command line arguements were given */
     if (argc != 3) {
         fprintf(stderr, "Usage: ./server [port number] [path to webroot]\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     /* Convert port number to a digit */
@@ -237,13 +247,13 @@ int main(int argc, char *argv[]) {
     sockfd = setup_listening_socket(portno, MAX_CLIENTS);
 
     /* loop that keeps fetching connections forever */
-    while (1) {
+    while (true) {
 
         /* Accept a connection - block until a connection is ready to -
            be accepted. Get back a new extension descriptor to communicate on. */
         newsockfd = accept(sockfd, (struct sockaddr *) &client_addr, &client_len);
         if (newsockfd == ERROR) {
-            fprintf(stderr, "Error: cannot open socket\n");
+            perror("Error: cannot open socket");
             continue;
         }
 
@@ -256,5 +266,5 @@ int main(int argc, char *argv[]) {
 
     close(sockfd);
 
-    return 0;
+    exit(EXIT_SUCCESS);
 }
