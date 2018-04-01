@@ -19,11 +19,11 @@ int setup_listening_socket(int portno, int max_clients) {
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == ERROR) {
         fprintf(stderr, "Error: cannot open socket");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     printf("Listening socket created.\n");
 
-    bzero(&serv_addr, sizeof serv_addr);
+    memset(&serv_addr, '\0', sizeof serv_addr);
 
     /* Create address we're going to listen on (given port number) -
        converted to network byte order & any IP address for -
@@ -32,11 +32,21 @@ int setup_listening_socket(int portno, int max_clients) {
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(portno);
 
+    /* Set socket option SO_REUSEADDR. If a recently closed server wants to -
+       use this port, and some of the leftover chunks is lingering around -
+       we can still use this port */
+    int yes=1; 
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == ERROR) { 
+        fprintf(stderr, "Error setting socket option for reusing address\n"); 
+        exit(EXIT_FAILURE); 
+    }  
+
     /* Bind address to the socket */
     if (bind(sock, (struct sockaddr *) &serv_addr, sizeof serv_addr) == ERROR) {
         fprintf(stderr, "Error: cannot bind address to socket\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
+
     printf("Binding done.\n");
     printf("Listening on port: %d.\n", portno);
 
@@ -44,7 +54,7 @@ int setup_listening_socket(int portno, int max_clients) {
        incoming connection requests will be queued */
     if (listen(sock, max_clients) == ERROR) {
         fprintf(stderr, "Error: cannot listen on socket\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     printf("Listening for incoming connections...\n");
 
@@ -74,12 +84,16 @@ void parse_request(http_request *parameters, char *response) {
     parameters->httpversion = strdup(saveptr);
     parameters->httpversion[strlen(saveptr)-1] = '\0';
 
+    free(copy);
+
 }
 
 /* Checks if a given extension is valid */
 /* Verifies that it is either .js, .jpg, .css or .html */
 bool supported_file(char *extension) {
     for (size_t i = 0; i < ARRAY_LENGTH(supported_extensions); i++) {
+
+        /* If extension is the same here, return */
         if (strcmp(supported_extensions[i], extension) == 0) {
             return true;
         }
@@ -123,34 +137,61 @@ char *check_file_exists(char *webroot, char *path, int *status) {
     return NULL;
 }
 
+/* Write file requested from 200 response */
+void read_write_file(int client, FILE *requested_file) {
+    unsigned char buffer[BUFFER_SIZE];
+    size_t bytes_read = 0;
+
+    /* Write contents of file to client socket */
+    while ((bytes_read = fread(buffer, 1, sizeof buffer, requested_file)) > 0) {
+        write(client, buffer, bytes_read);
+    }
+}
+
+/* Write 200 response headers */
+void write_headers(int client, const char *data, const char *defaults) {
+    char *buffer = malloc(strlen(data) + strlen(defaults) + 1);
+    sprintf(buffer, defaults, data);
+    write(client, buffer, strlen(buffer));
+    free(buffer);
+}
+
 /* Construct a file response for a 200 header */
 void construct_file_response(int client, char *httpversion, char *full_path) {
     char *request_file_extension = NULL;
     FILE *requested_file = NULL;
 
+    /* boilerplate headers */
+    const char *status_header = "%s 200 OK\r\n";
+    const char *content_header = "Content-Type: %s\r\n\r\n";
+
+    /* Get the file extension */
     request_file_extension = strchr(full_path, '.');
 
-    const char *format = "%s 200 OK\r\nContent-Type: %s\r\n\r\n";
+    /* First write the header http status */
+    write_headers(client, httpversion, status_header);
 
+    /* Go over the mime types and match the correct one */
     for (size_t i = 0; i < ARRAY_LENGTH(mime_map); i++) {
         if (strcmp(mime_map[i].extension, request_file_extension) == 0) {
 
-            size_t length = strlen(format) + 
-                            strlen(httpversion) + 
-                            strlen(mime_map[i].mime_type);
-
-            char *headers = malloc(length + 1);
-            snprintf(headers, length, format, httpversion, mime_map[i].mime_type);
-
-            write(client, headers, strlen(headers));
+            /* Write http content type */
+            write_headers(client, mime_map[i].mime_type, content_header);
 
             break;
         }
     }
 
-    requested_file = fopen(full_path, "r");
-    
+    /* Open contents of file in binary mode*/
+    requested_file = fopen(full_path, "rb");
+    if (requested_file == NULL) {
+        fprintf(stderr, "Error: cannot open file\n");
+        exit(1);
+    }
 
+    read_write_file(client, requested_file);
+
+    fclose(requested_file);
 }
 
 /* Processes client request for a file */
@@ -169,13 +210,19 @@ void process_client_request(int client, char *webroot) {
     /* Parse request parameters */
     parse_request(&request, copy);
 
-    /* get status of requested file */
+    /* get path of requested file */
+    /* only needed for 200 response */
     char *path = check_file_exists(webroot, request.URI, &status_code);
 
     if (status_code == FOUND) {
         construct_file_response(client, request.httpversion, path);
     }
 
+    free(request.method);
+    free(request.URI);
+    free(request.httpversion);
+
+    free(path);
 }
 
 int main(int argc, char *argv[]) {
@@ -211,6 +258,8 @@ int main(int argc, char *argv[]) {
         /* Process incoming request */
         process_client_request(newsockfd, argv[2]);
 
+        /* We can now close this client socket */
+        close(newsockfd);
     }
 
     close(sockfd);
