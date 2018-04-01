@@ -23,6 +23,12 @@ typedef struct {
     char *httpversion;
 } http_request;
 
+typedef struct {
+    int code;
+    char *status_header;
+    char *path;
+} header_info;
+
 /* Mime types */
 typedef struct {
     const char *extension;

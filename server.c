@@ -85,7 +85,6 @@ void parse_request(http_request *parameters, char *response) {
     parameters->httpversion[strlen(saveptr)-1] = '\0';
 
     free(copy);
-
 }
 
 /* Checks if a given extension is valid */
@@ -103,7 +102,7 @@ bool supported_file(char *extension) {
 }
 
 /* Checks if a file exists in the web directory */
-char *check_file_exists(char *webroot, char *path, int *status) {
+char *check_file_exists(const char *webroot, const char *path, int *status) {
     char *full_path = NULL;
     *status = NOT_FOUND;
 
@@ -121,31 +120,34 @@ char *check_file_exists(char *webroot, char *path, int *status) {
     /* Gets the extension after the first dot character */
     char *extension = strchr(full_path, '.');
 
-    /* If nothing is found, return no path*/
-    if (extension == NULL) {
-        return NULL;
-    }
-    
-    /* If full path is accessible and file is supported, -
-       return path and update status to 200 */
-    if (access(full_path, F_OK) == 0 && supported_file(extension)) {
+    /* If full path is accessible and file is supported, update status to 200 */
+    if (extension != NULL && access(full_path, F_OK) == 0 && supported_file(extension)) {
         *status = FOUND;
-        return full_path;
     }
 
-    /* If we get here, no path to a valid file is possible */
-    return NULL;
+    /* Return the full path either way*/
+    return full_path;
 }
 
 /* Write file requested from 200 response */
-void read_write_file(int client, FILE *requested_file) {
+void read_write_file(int client, char *path) {
+    FILE *requested_file = NULL;
     unsigned char buffer[BUFFER_SIZE];
     size_t bytes_read = 0;
+
+    /* Open contents of file in binary mode*/
+    requested_file = fopen(path, "rb");
+    if (requested_file == NULL) {
+        fprintf(stderr, "Error: cannot open file\n");
+        exit(1);
+    }
 
     /* Write contents of file to client socket */
     while ((bytes_read = fread(buffer, 1, sizeof buffer, requested_file)) > 0) {
         write(client, buffer, bytes_read);
     }
+
+    fclose(requested_file);
 }
 
 /* Write 200 response headers */
@@ -153,25 +155,19 @@ void write_headers(int client, const char *data, const char *defaults) {
     char *buffer = malloc(strlen(data) + strlen(defaults) + 1);
     sprintf(buffer, defaults, data);
     write(client, buffer, strlen(buffer));
-    free(buffer);
 }
 
-/* Construct a file response for a 200 header */
-void construct_file_response(int client, char *httpversion, char *full_path) {
+void construct_file_response(int client, const char *httpversion, const char *full_path, const char *status) {
     char *request_file_extension = NULL;
-    FILE *requested_file = NULL;
 
-    /* boilerplate headers */
-    const char *status_header = "%s 200 OK\r\n";
-    const char *content_header = "Content-Type: %s\r\n\r\n";
+    char *content_header = "Content-Type: %s\r\n\r\n";
 
     /* Get the file extension */
     request_file_extension = strchr(full_path, '.');
 
-    /* First write the header http status */
-    write_headers(client, httpversion, status_header);
+    /* Write the status header */
+    write_headers(client, httpversion, status);
 
-    /* Go over the mime types and match the correct one */
     for (size_t i = 0; i < ARRAY_LENGTH(mime_map); i++) {
         if (strcmp(mime_map[i].extension, request_file_extension) == 0) {
 
@@ -181,24 +177,16 @@ void construct_file_response(int client, char *httpversion, char *full_path) {
             break;
         }
     }
-
-    /* Open contents of file in binary mode*/
-    requested_file = fopen(full_path, "rb");
-    if (requested_file == NULL) {
-        fprintf(stderr, "Error: cannot open file\n");
-        exit(1);
-    }
-
-    read_write_file(client, requested_file);
-
-    fclose(requested_file);
 }
 
 /* Processes client request for a file */
-void process_client_request(int client, char *webroot) {
+void process_client_request(int client, const char *webroot) {
     char copy[BUFFER_SIZE];
     http_request request;
     int n, status_code;
+
+    const char *found = "%s 200 OK\r\n";
+    const char *not_found = "%s 404 Not Found\r\n";
 
     /* Read in copy */
     n = read(client, copy, BUFFER_SIZE - 1);
@@ -215,7 +203,11 @@ void process_client_request(int client, char *webroot) {
     char *path = check_file_exists(webroot, request.URI, &status_code);
 
     if (status_code == FOUND) {
-        construct_file_response(client, request.httpversion, path);
+        construct_file_response(client, request.httpversion, path, found);
+        read_write_file(client, path);
+
+    } else {
+        construct_file_response(client, request.httpversion, path, not_found);
     }
 
     free(request.method);
