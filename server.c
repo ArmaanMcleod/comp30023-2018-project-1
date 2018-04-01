@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stdbool.h>
 
 #include "server.h"
 
@@ -84,29 +85,57 @@ void parse_request(http_request *parameters, char *response) {
     parameters->httpversion = strdup(request[2]);
 }
 
-int check_file(char *webroot, char *path) {
-    char *full_path;
-
-    full_path = malloc(strlen(webroot) + strlen(path) + 1);
-    if (full_path == NULL) {
-        fprintf(stderr, "Error: annot allocate string\n");
+/* Checks if a given extension is valid */
+/* Verifies that it is either .js, .jpg, .css or .html */
+bool supported_file(char *extension) {
+    for (size_t i = 0; i < ARRAY_LENGTH(supported_extensions); i++) {
+        if (strcmp(supported_extensions[i], extension) == 0) {
+            return true;
+        }
     }
 
+    return false;
+}
+
+/* Checks if a file exists in the web directory */
+char *check_file_exists(char *webroot, char *path, int *status) {
+    char *full_path = NULL;
+    *status = NOT_FOUND;
+
+    /* Create an array big enough for the web root and path */
+    full_path = malloc(strlen(webroot) + strlen(path) + 1);
+
+    /* Combine web root and path */
     strcpy(full_path, webroot);
     strcat(full_path, path);
 
-    if (access(full_path, F_OK) == 0) {
-        return FOUND;
-    } 
+    /* Gets the extension after the first dot character */
+    char *extension = strchr(full_path, '.');
 
-    return NOT_FOUND;
+    /* If nothing is found, return nothing*/
+    if (extension == NULL) {
+        return NULL;
+    }
+    
+    /* If full path is accessible and file is supported, -
+       return path and update status to 200 */
+    if (access(full_path, F_OK) == 0 && supported_file(extension)) {
+        *status = FOUND;
+        return full_path;
+    }
 
+    /* If we get here, no path to a valid file is possible */
+    return NULL;
+}
+
+void construct_file_response(int client, char *full_path) {
+    return;
 }
 
 void process_client_request(int client, char *webroot) {
     char response[BUFFER_SIZE];
     http_request request;
-    int n;
+    int n, status_code;
 
     /* Read in response */
     n = read(client, response, BUFFER_SIZE - 1);
@@ -118,13 +147,13 @@ void process_client_request(int client, char *webroot) {
     /* Parse request parameters */
     parse_request(&request, response);
 
-    int file_check = check_file(webroot, request.URI);
+    /* get status of requested file */
+    char *path = check_file_exists(webroot, request.URI, &status_code);
 
-    printf("%d\n", x);
+    if (status_code == FOUND) {
 
-    //printf("%s\n", request.method);
-    //printf("%s\n", request.URI);
-    //printf("%s\n", request.httpversion);
+    }
+
 }
 
 int main(int argc, char *argv[]) {
@@ -150,7 +179,7 @@ int main(int argc, char *argv[]) {
     while (1) {
 
         /* Accept a connection - block until a connection is ready to -
-           be accepted. Get back a new file descriptor to communicate on. */
+           be accepted. Get back a new extension descriptor to communicate on. */
         newsockfd = accept(sockfd, (struct sockaddr *) &client_addr, &client_len);
         if (newsockfd == ERROR) {
             fprintf(stderr, "Error: cannot open socket\n");

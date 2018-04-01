@@ -13,7 +13,9 @@
 /* Error flag */
 #define ERROR -1
 
-#define GET_METHOD "GET"
+#define ARRAY_LENGTH(x) (sizeof x / sizeof *x)
+
+const char *supported_extensions[] = {".html", ".jpg", ".css", ".js"};
 
 typedef struct {
     char *method;
