@@ -54,35 +54,26 @@ int setup_listening_socket(int portno, int max_clients) {
 /* Parses HTTP request header */
 /* Gets method, URI and version */
 void parse_request(http_request *parameters, char *response) {
-    /* Initially fill request parameters in an array */
-    char *request[NUM_PARAMS]; 
+    char *saveptr = NULL, *path = NULL;
 
-    /* extract everything up until new line */
-    char *temp = response;
-    strtok(temp, "\n");
+    /* Copy over the response */
+    char *copy = strdup(response);
 
-    /* If line was found */
-    if (temp != NULL) {
+    /* Extract just the first line */
+    path = strtok_r(copy, "\n", &saveptr);
 
-        /* Split line by spaces and add it to array */
-        size_t count = 0;
-        char *split_string = strtok(temp, " ");
-        while (split_string != NULL) {
+    /* Extract the method */
+    path = strtok_r(copy, " ", &saveptr);
+    parameters->method = strdup(path);
 
-            /* Make sure we dont go beyond the array */
-            if (count < NUM_PARAMS) {
-                request[count] = strdup(split_string);
-                count++;
-            }
-            split_string = strtok(NULL, " ");
-        }
-    }
+    /* Extract the URI */
+    path = strtok_r(NULL, " ", &saveptr);
+    parameters->URI = strdup(path);
 
-    /* Set paramateters to struct object */
-    /* Easier to handle than an array */
-    parameters->method = strdup(request[0]);
-    parameters->URI = strdup(request[1]);
-    parameters->httpversion = strdup(request[2]);
+    /* Extract the http version */
+    parameters->httpversion = strdup(saveptr);
+    parameters->httpversion[strlen(saveptr)-1] = '\0';
+
 }
 
 /* Checks if a given extension is valid */
@@ -104,6 +95,10 @@ char *check_file_exists(char *webroot, char *path, int *status) {
 
     /* Create an array big enough for the web root and path */
     full_path = malloc(strlen(webroot) + strlen(path) + 1);
+    if (full_path == NULL) {
+        fprintf(stderr, "Error: cannot allocate space for path\n");
+        exit(1);
+    }
 
     /* Combine web root and path */
     strcpy(full_path, webroot);
@@ -112,7 +107,7 @@ char *check_file_exists(char *webroot, char *path, int *status) {
     /* Gets the extension after the first dot character */
     char *extension = strchr(full_path, '.');
 
-    /* If nothing is found, return nothing*/
+    /* If nothing is found, return no path*/
     if (extension == NULL) {
         return NULL;
     }
@@ -128,30 +123,57 @@ char *check_file_exists(char *webroot, char *path, int *status) {
     return NULL;
 }
 
-void construct_file_response(int client, char *full_path) {
-    return;
+/* Construct a file response for a 200 header */
+void construct_file_response(int client, char *httpversion, char *full_path) {
+    char *request_file_extension = NULL;
+    FILE *requested_file = NULL;
+
+    request_file_extension = strchr(full_path, '.');
+
+    const char *format = "%s 200 OK\r\nContent-Type: %s\r\n\r\n";
+
+    for (size_t i = 0; i < ARRAY_LENGTH(mime_map); i++) {
+        if (strcmp(mime_map[i].extension, request_file_extension) == 0) {
+
+            size_t length = strlen(format) + 
+                            strlen(httpversion) + 
+                            strlen(mime_map[i].mime_type);
+
+            char *headers = malloc(length + 1);
+            snprintf(headers, length, format, httpversion, mime_map[i].mime_type);
+
+            write(client, headers, strlen(headers));
+
+            break;
+        }
+    }
+
+    requested_file = fopen(full_path, "r");
+    
+
 }
 
+/* Processes client request for a file */
 void process_client_request(int client, char *webroot) {
-    char response[BUFFER_SIZE];
+    char copy[BUFFER_SIZE];
     http_request request;
     int n, status_code;
 
-    /* Read in response */
-    n = read(client, response, BUFFER_SIZE - 1);
+    /* Read in copy */
+    n = read(client, copy, BUFFER_SIZE - 1);
     if (n == ERROR) {
         fprintf(stderr, "Error: cannot read request\n");
         exit(1);
     }
 
     /* Parse request parameters */
-    parse_request(&request, response);
+    parse_request(&request, copy);
 
     /* get status of requested file */
     char *path = check_file_exists(webroot, request.URI, &status_code);
 
     if (status_code == FOUND) {
-
+        construct_file_response(client, request.httpversion, path);
     }
 
 }

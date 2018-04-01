@@ -30,11 +30,11 @@ typedef struct {
 } mime_types;
 
 /* Hardcoded mime types */
-const mime_types map[] = {
+const mime_types mime_map[] = {
     {".html", "text/html"},
     {".jpg", "image/jpeg"},
     {".css", "text/css"},
-    {".js", "application/javascript"}
+    {".js", "text/javascript"}
 };
 
 #endif
