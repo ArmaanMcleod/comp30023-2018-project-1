@@ -231,7 +231,7 @@ int main(int argc, char *argv[]) {
     int sockfd, newsockfd;
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof client_addr;
-    int portno;
+    int portno, pid;
 
     /* Check if enough command line arguements were given */
     if (argc != 3) {
@@ -247,6 +247,7 @@ int main(int argc, char *argv[]) {
     sockfd = setup_listening_socket(portno, MAX_CLIENTS);
 
     /* loop that keeps fetching connections forever */
+    /* allows server to be a persistent connection */
     while (true) {
 
         /* Accept a connection - block until a connection is ready to -
@@ -257,14 +258,23 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        /* Process incoming request */
-        process_client_request(newsockfd, argv[2]);
+        /* Create child process */
+        pid = fork();
+        if (pid == ERROR) {
+            perror("Error: cannot fork process");
+            exit(EXIT_FAILURE);
+        }
 
-        /* We can now close this client socket */
+        /* This is a client process */
+        if (pid == 0) {
+            close(sockfd);
+            
+            /* Process incoming request */
+            process_client_request(newsockfd, argv[2]);
+            exit(EXIT_SUCCESS);
+        } 
+
         close(newsockfd);
     }
 
-    close(sockfd);
-
-    exit(EXIT_SUCCESS);
 }
