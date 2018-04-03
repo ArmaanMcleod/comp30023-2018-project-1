@@ -13,7 +13,7 @@
 /* Sets up listening socket for server */
 int setup_listening_socket(int portno, int max_clients) {
     struct sockaddr_in serv_addr;
-    int sock;
+    int sock, on = 1;
 
      /* Setup TCP socket */
     sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -35,8 +35,7 @@ int setup_listening_socket(int portno, int max_clients) {
     /* Set socket option SO_REUSEADDR. If a recently closed server wants to -
        use this port, and some of the leftover chunks is lingering around -
        we can still use this port */
-    int yes=1; 
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == ERROR) { 
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == ERROR) { 
         perror("Error: setting socket option for reusing address"); 
         exit(EXIT_FAILURE); 
     }  
@@ -206,6 +205,8 @@ void process_client_request(int client, const char *webroot) {
         exit(EXIT_FAILURE);
     }
 
+    printf("%s", buffer);
+
     /* Parse request parameters */
     parse_request(&request, buffer);
 
@@ -268,7 +269,7 @@ int main(int argc, char *argv[]) {
         /* This is a client process */
         if (pid == 0) {
             close(sockfd);
-            
+
             /* Process incoming request */
             process_client_request(newsockfd, argv[2]);
             exit(EXIT_SUCCESS);
