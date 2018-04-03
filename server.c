@@ -60,6 +60,7 @@ int setup_listening_socket(int portno, int max_clients) {
     return sock;
 }
 
+/* Used for checking null pointers */
 void exit_if_null(void *ptr) {
     if (ptr == NULL) {
         perror("Error: unexpected null pointer");
@@ -97,10 +98,10 @@ void parse_request(http_request *parameters, char *response) {
 /* Checks if a given extension is valid */
 /* Verifies that it is either .js, .jpg, .css or .html */
 bool supported_file(char *extension) {
-    for (size_t i = 0; i < ARRAY_LENGTH(supported_extensions); i++) {
+    for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
 
         /* If extension is the same here, return */
-        if (strcmp(supported_extensions[i], extension) == 0) {
+        if (strcmp(file_map[i].extension, extension) == 0) {
             return true;
         }
     }
@@ -108,8 +109,8 @@ bool supported_file(char *extension) {
     return false;
 }
 
-/* Checks if a file exists in the web directory */
-char *check_file_exists(const char *webroot, const char *path, int *status) {
+/* Gets full path of requested file */
+char *get_full_path(const char *webroot, const char *path, int *status) {
     char *full_path = NULL;
     *status = NOT_FOUND;
 
@@ -134,9 +135,9 @@ char *check_file_exists(const char *webroot, const char *path, int *status) {
 }
 
 /* Write file requested from 200 response */
-void read_write_file(int client, char *path) {
+void read_write_file(int client, const char *path) {
     FILE *requested_file = NULL;
-    char buffer[BUFFER_SIZE];
+    unsigned char buffer[BUFFER_SIZE];
     size_t bytes_read = 0;
 
     /* Open contents of file in binary mode*/
@@ -151,6 +152,10 @@ void read_write_file(int client, char *path) {
         }
     }
 
+    /* Cleat buffer */
+    memset(buffer, '\0', sizeof buffer);
+
+    /* Finished with file */
     fclose(requested_file);
 }
 
@@ -159,6 +164,7 @@ void write_headers(int client, const char *data, const char *defaults) {
     char *buffer = malloc(strlen(data) + strlen(defaults) + 1);
     exit_if_null(buffer);
 
+    /* Write into buffer */
     sprintf(buffer, defaults, data);
 
     if (write(client, buffer, strlen(buffer)) == ERROR) {
@@ -169,21 +175,21 @@ void write_headers(int client, const char *data, const char *defaults) {
     free(buffer);
 }
 
-void construct_file_response(int client, const char *httpversion, const char *full_path, const char *status) {
+void construct_file_response(int client, const char *httpversion, const char *path, const char *status) {
     char *request_file_extension = NULL;
     const char *content_header = "Content-Type: %s\r\n\r\n";
 
     /* Get the file extension */
-    request_file_extension = strchr(full_path, '.');
+    request_file_extension = strchr(path, '.');
 
     /* Write the status header */
     write_headers(client, httpversion, status);
 
-    for (size_t i = 0; i < ARRAY_LENGTH(mime_map); i++) {
-        if (strcmp(mime_map[i].extension, request_file_extension) == 0) {
+    for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
+        if (strcmp(file_map[i].extension, request_file_extension) == 0) {
 
             /* Write http content type */
-            write_headers(client, mime_map[i].mime_type, content_header);
+            write_headers(client, file_map[i].mime_type, content_header);
 
             break;
         }
@@ -205,14 +211,12 @@ void process_client_request(int client, const char *webroot) {
         exit(EXIT_FAILURE);
     }
 
-    printf("%s", buffer);
-
     /* Parse request parameters */
     parse_request(&request, buffer);
 
     /* get path of requested file */
     /* only needed for 200 response */
-    char *path = check_file_exists(webroot, request.URI, &status_code);
+    char *path = get_full_path(webroot, request.URI, &status_code);
 
     if (status_code == FOUND) {
         construct_file_response(client, request.httpversion, path, found);
@@ -220,6 +224,8 @@ void process_client_request(int client, const char *webroot) {
     } else {
         construct_file_response(client, request.httpversion, path, not_found);
     }
+
+    memset(buffer, '\0', sizeof buffer);
 
     free(request.method);
     free(request.URI);
@@ -232,7 +238,7 @@ int main(int argc, char *argv[]) {
     int sockfd, newsockfd;
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof client_addr;
-    int portno, pid;
+    int portno;
 
     /* Check if enough command line arguements were given */
     if (argc != 3) {
@@ -259,23 +265,12 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        /* Create child process */
-        pid = fork();
-        if (pid == ERROR) {
-            perror("Error: cannot fork process");
-            exit(EXIT_FAILURE);
-        }
-
-        /* This is a client process */
-        if (pid == 0) {
-            close(sockfd);
-
-            /* Process incoming request */
-            process_client_request(newsockfd, argv[2]);
-            exit(EXIT_SUCCESS);
-        } 
+        /* Process incoming request */
+        process_client_request(newsockfd, argv[2]);
 
         close(newsockfd);
     }
+
+    close(sockfd);
 
 }
