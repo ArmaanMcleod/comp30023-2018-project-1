@@ -111,11 +111,10 @@ bool supported_file(char *extension) {
 
 /* Gets full path of requested file */
 char *get_full_path(const char *webroot, const char *path, int *status) {
-    char *full_path = NULL;
     *status = NOT_FOUND;
 
     /* Create an array big enough for the web root and path */
-    full_path = malloc(strlen(webroot) + strlen(path) + 1);
+    char *full_path = malloc(strlen(webroot) + strlen(path) + 1);
     exit_if_null(full_path);
 
     /* Combine web root and path */
@@ -134,31 +133,6 @@ char *get_full_path(const char *webroot, const char *path, int *status) {
     return full_path;
 }
 
-/* Write file requested from 200 response */
-void read_write_file(int client, const char *path) {
-    FILE *requested_file = NULL;
-    unsigned char buffer[BUFFER_SIZE];
-    size_t bytes_read = 0;
-
-    /* Open contents of file in binary mode*/
-    requested_file = fopen(path, "rb");
-    exit_if_null(requested_file);
-
-    /* Write contents of file to client socket */
-    while ((bytes_read = fread(buffer, 1, sizeof buffer, requested_file)) > 0) {
-        if (write(client, buffer, bytes_read) == ERROR) {
-            perror("Error: cannot write to socket");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    /* Cleat buffer */
-    memset(buffer, '\0', sizeof buffer);
-
-    /* Finished with file */
-    fclose(requested_file);
-}
-
 /* Write 200 response headers */
 void write_headers(int client, const char *data, const char *defaults) {
     char *buffer = malloc(strlen(data) + strlen(defaults) + 1);
@@ -175,9 +149,41 @@ void write_headers(int client, const char *data, const char *defaults) {
     free(buffer);
 }
 
+/* Write file requested from 200 response */
+void read_write_file(int client, const char *path) {
+    FILE *requested_file = NULL;
+    unsigned char buffer[BUFFER_SIZE];
+    char content_length[BUFFER_SIZE];
+    size_t bytes_read;
+
+    const char *length_header = "Content-Length: %s\r\n\r\n";
+
+    /* Open contents of file in binary mode*/
+    requested_file = fopen(path, "rb");
+    exit_if_null(requested_file);
+
+    /* Write contents of file to client socket */
+    while ((bytes_read = fread(buffer, 1, sizeof buffer, requested_file)) > 0) {
+
+        /* Write content length */
+        snprintf(content_length, sizeof content_length, "%zu", bytes_read);
+        write_headers(client, content_length, length_header);
+
+        /* Write body of header to socket */
+        if (write(client, buffer, bytes_read) == ERROR) {
+            perror("Error: cannot write to socket");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    /* Finished with file */
+    fclose(requested_file);
+
+}
+
 void construct_file_response(int client, const char *httpversion, const char *path, const char *status) {
     char *request_file_extension = NULL;
-    const char *content_header = "Content-Type: %s\r\n\r\n";
+    const char *content_header = "Content-Type: %s\r\n";
 
     /* Get the file extension */
     request_file_extension = strchr(path, '.');
@@ -235,10 +241,9 @@ void process_client_request(int client, const char *webroot) {
 }
 
 int main(int argc, char *argv[]) {
-    int sockfd, newsockfd;
+    int sockfd, newsockfd, portno;
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof client_addr;
-    int portno;
 
     /* Check if enough command line arguements were given */
     if (argc != 3) {
