@@ -14,7 +14,7 @@
 /* Constants */
 #define NOT_FOUND 404
 #define FOUND 200
-#define MAX_CLIENTS 100
+#define MAX_CONNECTIONS 100
 #define BUFFER_SIZE 1024
 #define ERROR -1
 

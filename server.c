@@ -266,6 +266,7 @@ int main(int argc, char *argv[]) {
     int sockfd, client, portno;
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof client_addr;
+    pthread_t thread_id;
 
     /* Check if enough command line arguements were given */
     if (argc != 3) {
@@ -278,7 +279,7 @@ int main(int argc, char *argv[]) {
     portno = atoi(argv[1]);
 
     /* Construct socket */
-    sockfd = setup_listening_socket(portno, MAX_CLIENTS);
+    sockfd = setup_listening_socket(portno, MAX_CONNECTIONS);
 
     /* loop that keeps fetching connections forever */
     /* allows server to be a persistent connection */
@@ -297,21 +298,19 @@ int main(int argc, char *argv[]) {
         exit_if_null(info);
         info->client = client;
         info->client_addr = client_addr;
-        info->webroot = argv[2];
+        info->webroot = strdup(argv[2]);
 
         /* Create new thread */
-        pthread_t thread_id;
-        if (pthread_create(&thread_id, NULL, process_client_request, (void*)info)) {
+        if (pthread_create(&thread_id, NULL, process_client_request, info)) {
             perror("Error: failed to create thread");
             exit(EXIT_FAILURE);
         }
 
+        /* Detach this thread */
         if (pthread_detach(thread_id)) {
             perror("Error: failed to detach thread");
             exit(EXIT_FAILURE);
         }
     }
-
     close(sockfd);
-
 }

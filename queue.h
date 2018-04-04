@@ -7,11 +7,10 @@
 /* Wrapper struct to hold queue, which is just a list */
 typedef struct {
     List *list;
-    int maxsize;
 } Queue;
 
 /* Create a new FIFO queue and return its pointer */
-Queue *queue_new(int maxsize);
+Queue *queue_new(void);
 
 /* Add data to the front of the queue */
 void queue_enqueue(Queue *queue, void *data);
