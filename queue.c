@@ -5,11 +5,12 @@
 #include "queue.h"
 
 /* Create new FIFO queue */
-Queue *queue_new(void) {
+Queue *queue_new(int maxsize) {
     Queue * queue = malloc(sizeof *queue);
     assert(queue != NULL);
 
     queue->list = list_new();
+    queue->maxsize = maxsize;
 
     return queue;
 }

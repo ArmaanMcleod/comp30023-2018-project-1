@@ -1,18 +1,24 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-/* Response status */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <stdbool.h>
+
+/* Constants */
 #define NOT_FOUND 404
 #define FOUND 200
-
-/* buffer sizes */
-#define MAX_THREADS 100
-#define MAX_CLIENTS 1024
+#define MAX_CLIENTS 100
 #define BUFFER_SIZE 1024
-
-/* Error flag */
 #define ERROR -1
 
+/* Macros */
 #define ARRAY_LENGTH(x) (sizeof x / sizeof *x)
 
 /* HTTP request info */
@@ -21,6 +27,13 @@ typedef struct {
     char *URI;
     char *httpversion;
 } http_request;
+
+/* Client information passed into thread */
+typedef struct {
+    int client;
+    struct sockaddr_in client_addr;
+    char *webroot;
+} client_info;
 
 /* Served file information, including mime types */
 typedef struct {

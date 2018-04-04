@@ -1,13 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <stdbool.h>
-
 #include "server.h"
 #include "queue.h"
 
@@ -201,7 +191,6 @@ void read_write_file(int client, const char *path) {
 
     /* Finished with file */
     fclose(requested_file);
-
 }
 
 void construct_file_response(int client, const char *httpversion, const char *path, const char *status) {
@@ -229,16 +218,18 @@ void construct_file_response(int client, const char *httpversion, const char *pa
 }
 
 /* Processes client request for a file */
-void process_client_request(int client, const char *webroot) {
+void *process_client_request(void *params) {
     char buffer[BUFFER_SIZE];
     http_request request;
     int status_code;
+
+    client_info *info = (client_info *)params;
 
     const char *found = "%s 200 OK\r\n";
     const char *not_found = "%s 404 Not Found\r\n";
 
     /* Read in request */
-    if (read(client, buffer, BUFFER_SIZE - 1) == ERROR) {
+    if (read(info->client, buffer, BUFFER_SIZE - 1) == ERROR) {
         perror("Error: cannot read request");
         exit(EXIT_FAILURE);
     }
@@ -248,13 +239,13 @@ void process_client_request(int client, const char *webroot) {
 
     /* get path of requested file */
     /* only needed for 200 response */
-    char *path = get_full_path(webroot, request.URI, &status_code);
+    char *path = get_full_path(info->webroot, request.URI, &status_code);
 
     if (status_code == FOUND) {
-        construct_file_response(client, request.httpversion, path, found);
-        read_write_file(client, path);
+        construct_file_response(info->client, request.httpversion, path, found);
+        read_write_file(info->client, path);
     } else {
-        construct_file_response(client, request.httpversion, path, not_found);
+        construct_file_response(info->client, request.httpversion, path, not_found);
     }
 
     memset(buffer, '\0', sizeof buffer);
@@ -264,10 +255,15 @@ void process_client_request(int client, const char *webroot) {
     free(request.httpversion);
 
     free(path);
+
+    close(info->client);
+    free(info);
+
+    return NULL;
 }
 
 int main(int argc, char *argv[]) {
-    int sockfd, newsockfd, portno;
+    int sockfd, client, portno;
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof client_addr;
 
@@ -290,16 +286,30 @@ int main(int argc, char *argv[]) {
 
         /* Accept a connection - block until a connection is ready to -
            be accepted. Get back a new extension descriptor to communicate on. */
-        newsockfd = accept(sockfd, (struct sockaddr *) &client_addr, &client_len);
-        if (newsockfd == ERROR) {
+        client = accept(sockfd, (struct sockaddr *) &client_addr, &client_len);
+        if (client == ERROR) {
             perror("Error: cannot open socket");
             continue;
         }
+        
+        /* Insert client information here */
+        client_info *info = malloc(sizeof *info);
+        exit_if_null(info);
+        info->client = client;
+        info->client_addr = client_addr;
+        info->webroot = argv[2];
 
-        /* Process incoming request */
-        process_client_request(newsockfd, argv[2]);
+        /* Create new thread */
+        pthread_t thread_id;
+        if (pthread_create(&thread_id, NULL, process_client_request, (void*)info)) {
+            perror("Error: failed to create thread");
+            exit(EXIT_FAILURE);
+        }
 
-        close(newsockfd);
+        if (pthread_detach(thread_id)) {
+            perror("Error: failed to detach thread");
+            exit(EXIT_FAILURE);
+        }
     }
 
     close(sockfd);

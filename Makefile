@@ -1,5 +1,5 @@
 CC     = gcc
-CFLAGS = -Wall -Wextra
+CFLAGS = -Wall -Wextra -pthread
 OBJ    = server.o queue.o list.o
 EXE    = server
 
