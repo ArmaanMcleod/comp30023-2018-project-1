@@ -35,10 +35,10 @@ int setup_listening_socket(int portno, int max_clients) {
     /* Set socket option SO_REUSEADDR. If a recently closed server wants to -
        use this port, and some of the leftover chunks is lingering around -
        we can still use this port */
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == ERROR) { 
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on) == ERROR) { 
         perror("Error: setting socket option for reusing address"); 
         exit(EXIT_FAILURE); 
-    }  
+    } 
 
     /* Bind address to the socket */
     if (bind(sock, (struct sockaddr *) &serv_addr, sizeof serv_addr) == ERROR) {

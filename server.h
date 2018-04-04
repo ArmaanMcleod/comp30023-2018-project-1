@@ -15,20 +15,14 @@
 
 #define ARRAY_LENGTH(x) (sizeof x / sizeof *x)
 
+/* HTTP request info */
 typedef struct {
     char *method;
     char *URI;
     char *httpversion;
 } http_request;
 
-typedef struct {
-    char *path;
-    char *extension;
-    char *status_header;
-    int status;
-} requested_file;
-
-/* Mime types */
+/* Served file information, including mime types */
 typedef struct {
     const char *extension;
     const char *mime_type;
