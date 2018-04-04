@@ -71,10 +71,10 @@ void exit_if_null(void *ptr) {
 /* Parses HTTP request header */
 /* Gets method, URI and version */
 void parse_request(http_request *parameters, char *response) {
-    char *saveptr = NULL, *path = NULL;
+    char *saveptr = NULL, *path = NULL, *copy = NULL;
 
     /* Copy over the response */
-    char *copy = strdup(response);
+    copy = strdup(response);
     exit_if_null(copy);
 
     /* Extract just the first line */
@@ -111,10 +111,11 @@ bool supported_file(char *extension) {
 
 /* Gets full path of requested file */
 char *get_full_path(const char *webroot, const char *path, int *status) {
+    char *full_path = NULL, *extension = NULL;
     *status = NOT_FOUND;
 
     /* Create an array big enough for the web root and path */
-    char *full_path = malloc(strlen(webroot) + strlen(path) + 1);
+    full_path = malloc(strlen(webroot) + strlen(path) + 1);
     exit_if_null(full_path);
 
     /* Combine web root and path */
@@ -122,7 +123,7 @@ char *get_full_path(const char *webroot, const char *path, int *status) {
     strcat(full_path, path);
 
     /* Gets the extension after the first dot character */
-    char *extension = strchr(full_path, '.');
+    extension = strchr(full_path, '.');
 
     /* If full path is accessible and file is supported, update status to 200 */
     if (extension != NULL && access(full_path, F_OK) == 0 && supported_file(extension)) {
@@ -149,12 +150,24 @@ void write_headers(int client, const char *data, const char *defaults) {
     free(buffer);
 }
 
+/* Calculates length of number */
+size_t get_length_bytes(size_t bytes) {
+    size_t temp = bytes, count = 0;
+
+    while (temp != 0) {
+        temp /= 10;
+        count++;
+    }
+
+    return count;
+}
+
 /* Write file requested from 200 response */
 void read_write_file(int client, const char *path) {
     FILE *requested_file = NULL;
     unsigned char buffer[BUFFER_SIZE];
-    char content_length[BUFFER_SIZE];
-    size_t bytes_read;
+    char *content_length = NULL;
+    size_t bytes_read, length_bytes, total_bytes;
 
     const char *length_header = "Content-Length: %s\r\n\r\n";
 
@@ -165,8 +178,15 @@ void read_write_file(int client, const char *path) {
     /* Write contents of file to client socket */
     while ((bytes_read = fread(buffer, 1, sizeof buffer, requested_file)) > 0) {
 
+        /* Get number of digits in bytes read */
+        length_bytes = get_length_bytes(bytes_read);
+        total_bytes = strlen(length_header) + length_bytes;
+
         /* Write content length */
-        snprintf(content_length, sizeof content_length, "%zu", bytes_read);
+        content_length = malloc(total_bytes + 1);
+        exit_if_null(content_length);
+
+        snprintf(content_length, total_bytes + 1, "%zu", bytes_read);
         write_headers(client, content_length, length_header);
 
         /* Write body of header to socket */
@@ -174,6 +194,8 @@ void read_write_file(int client, const char *path) {
             perror("Error: cannot write to socket");
             exit(EXIT_FAILURE);
         }
+
+        free(content_length);
     }
 
     /* Finished with file */
@@ -182,22 +204,25 @@ void read_write_file(int client, const char *path) {
 }
 
 void construct_file_response(int client, const char *httpversion, const char *path, const char *status) {
-    char *request_file_extension = NULL;
+    char *requested_file_extension = NULL;
     const char *content_header = "Content-Type: %s\r\n";
-
-    /* Get the file extension */
-    request_file_extension = strchr(path, '.');
 
     /* Write the status header */
     write_headers(client, httpversion, status);
 
-    for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
-        if (strcmp(file_map[i].extension, request_file_extension) == 0) {
+    /* Get the file extension */
+    requested_file_extension = strchr(path, '.');
 
-            /* Write http content type */
-            write_headers(client, file_map[i].mime_type, content_header);
+    /* Need to make sure an extension exists first */
+    if (requested_file_extension != NULL) {
+        for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
+            if (strcmp(file_map[i].extension, requested_file_extension) == 0) {
 
-            break;
+                /* Write http content type */
+                write_headers(client, file_map[i].mime_type, content_header);
+
+                break;
+            }
         }
     }
 }
