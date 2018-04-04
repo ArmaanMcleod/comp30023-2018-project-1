@@ -9,6 +9,7 @@
 #include <stdbool.h>
 
 #include "server.h"
+#include "queue.h"
 
 /* Sets up listening socket for server */
 int setup_listening_socket(int portno, int max_clients) {

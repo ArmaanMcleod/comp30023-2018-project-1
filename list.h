@@ -1,6 +1,8 @@
 #ifndef LIST_H
 #define LIST_H
 
+#include <stdbool.h>
+
 /* node that points to the next element in a list */
 typedef struct node {
     void *data;
@@ -29,10 +31,19 @@ void *list_remove_start(List *list);
 /* Remove and get tail of linked list */
 void *list_remove_end(List *list);
 
+/* Get the head of the list */
+void *list_head(List *list);
+
+/* Get the tail of the list */
+void *list_tail(List *list);
+
 /* Get length of linked list */
 int list_length(List *list);
 
 /* Free linked list */
 void list_free(List *list);
+
+/* Check if list is empty */
+bool list_is_empty(List *list);
 
 #endif

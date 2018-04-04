@@ -139,6 +139,16 @@ void *list_remove_end(List *list) {
     return data;
 }
 
+/* Get the head of a list */
+void *list_head(List *list) {
+    return list->head;
+}
+
+/* Get the tail of a list */
+void *list_tail(List *list) {
+    return list->tail;
+}
+
 /* Gets size of linked list */
 int list_length(List *list) {
     assert(list != NULL);
@@ -160,6 +170,12 @@ void list_free(List *list) {
     }
 
     free(list);
+}
+
+/* Check if list is empty */
+bool list_is_empty(List *list) {
+    assert(list != NULL);
+    return list->size > 0;
 }
 
 

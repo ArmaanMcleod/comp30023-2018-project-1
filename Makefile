@@ -1,6 +1,6 @@
 CC     = gcc
 CFLAGS = -Wall -Wextra
-OBJ    = server.o
+OBJ    = server.o queue.o list.o
 EXE    = server
 
 $(EXE): $(OBJ)
