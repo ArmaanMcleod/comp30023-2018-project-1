@@ -156,9 +156,10 @@ size_t get_length_bytes(size_t bytes) {
 /* Write file requested from 200 response */
 void read_write_file(int client, const char *path) {
     FILE *requested_file = NULL;
-    unsigned char buffer[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE];
     char *content_length = NULL;
-    size_t bytes_read, length_bytes, total_bytes;
+    size_t bytes_read;
+    size_t length_bytes, total_bytes;
 
     const char *length_header = "Content-Length: %s\r\n\r\n";
 
@@ -179,7 +180,7 @@ void read_write_file(int client, const char *path) {
 
         snprintf(content_length, total_bytes + 1, "%zu", bytes_read);
         write_headers(client, content_length, length_header);
-
+        
         /* Write body of header to socket */
         if (write(client, buffer, bytes_read) == ERROR) {
             perror("Error: cannot write to socket");
@@ -226,7 +227,7 @@ void *process_client_request(void *params) {
     client_info *info = (client_info *)params;
 
     const char *found = "%s 200 OK\r\n";
-    const char *not_found = "%s 404 Not Found\r\n";
+    const char *not_found = "%s 404\r\n";
 
     /* Read in request */
     if (read(info->client, buffer, BUFFER_SIZE - 1) == ERROR) {
