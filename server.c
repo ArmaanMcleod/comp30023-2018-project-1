@@ -1,12 +1,21 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <stdbool.h>
+
 #include "server.h"
-#include "queue.h"
 
 char *webroot = NULL;
 
 /* Sets up listening socket for server */
 int setup_listening_socket(int portno, int max_clients) {
     struct sockaddr_in serv_addr;
-    int sock, on = 1;
+    int sock, setopt = 1;
 
      /* Setup TCP socket */
     sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -28,7 +37,7 @@ int setup_listening_socket(int portno, int max_clients) {
     /* Set socket option SO_REUSEADDR. If a recently closed server wants to -
        use this port, and some of the leftover chunks is lingering around -
        we can still use this port */
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on) == ERROR) { 
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &setopt, sizeof setopt) == ERROR) { 
         perror("Error: setting socket option for reusing address"); 
         exit(EXIT_FAILURE); 
     } 
@@ -160,7 +169,7 @@ size_t get_length_bytes(size_t bytes) {
 void read_write_file(int client, const char *path) {
     FILE *requested_file = NULL;
     char *content_length = NULL;
-    size_t length_bytes, total_bytes, bytes_read;
+    size_t length_bytes, total_bytes, bytes_read, buffer_size;
 
     /* Open contents of file in binary mode*/
     requested_file = fopen(path, "rb");
@@ -170,15 +179,15 @@ void read_write_file(int client, const char *path) {
     long file_size = ftell(requested_file);
     fseek(requested_file, 0, SEEK_SET);
 
-    buffer_size = (size_t)file_size + 1;
-    char *buffer = malloc(buffer_size);
+    buffer_size = (size_t)file_size;
+    char *buffer = malloc(buffer_size + 1);
     exit_if_null(buffer);
 
-    memset(buffer, '\0', buffer_size);
+    memset(buffer, '\0', buffer_size + 1);
 
     /* Write contents of file to client socket */
     bytes_read = fread(buffer, 1, file_size, requested_file);
-    if (bytes_read == file_size) {
+    if (bytes_read == buffer_size) {
         /* Get number of digits in bytes read */
         length_bytes = get_length_bytes(bytes_read);
         total_bytes = strlen(length_header) + length_bytes;
@@ -284,6 +293,7 @@ int main(int argc, char *argv[]) {
     /* Assumes port number is valid */
     portno = atoi(argv[1]);
 
+    /* Update global webroot */
     webroot = argv[2];
 
     /* Construct socket */
