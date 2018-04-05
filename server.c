@@ -1,10 +1,6 @@
 #include "server.h"
 #include "queue.h"
 
-Queue *client_queue;
-
-char *webroot = NULL;
-
 /* Sets up listening socket for server */
 int setup_listening_socket(int portno, int max_clients) {
     struct sockaddr_in serv_addr;
@@ -164,8 +160,6 @@ void read_write_file(int client, const char *path) {
     char *content_length = NULL;
     size_t length_bytes, total_bytes, bytes_read;
 
-    const char *length_header = "Content-Length: %s\r\n\r\n";
-
     /* Open contents of file in binary mode*/
     requested_file = fopen(path, "rb");
     exit_if_null(requested_file);
@@ -208,7 +202,6 @@ void read_write_file(int client, const char *path) {
 
 void construct_file_response(int client, const char *httpversion, const char *path, const char *status) {
     char *requested_file_extension = NULL;
-    const char *content_header = "Content-Type: %s\r\n";
 
     /* Write the status header */
     write_headers(client, httpversion, status);
@@ -232,19 +225,14 @@ void construct_file_response(int client, const char *httpversion, const char *pa
 
 /* Processes client request for a file */
 void *process_client_request(void *args) {
-    int client = *(int *) args;
+    client_info *info = args;
 
     char buffer[BUFFER_SIZE];
     http_request request;
     int status_code;
 
-    //client_info *info = (client_info *)params;
-
-    const char *found = "%s 200 OK\r\n";
-    const char *not_found = "%s 404\r\n";
-
     /* Read in request */
-    if (read(client, buffer, BUFFER_SIZE - 1) == ERROR) {
+    if (read(info->client, buffer, BUFFER_SIZE - 1) == ERROR) {
         perror("Error: cannot read request");
         exit(EXIT_FAILURE);
     }
@@ -254,13 +242,13 @@ void *process_client_request(void *args) {
 
     /* get path of requested file */
     /* only needed for 200 response */
-    char *path = get_full_path(webroot, request.URI, &status_code);
+    char *path = get_full_path(info->webroot, request.URI, &status_code);
 
     if (status_code == FOUND) {
-        construct_file_response(client, request.httpversion, path, found);
-        read_write_file(client, path);
+        construct_file_response(info->client, request.httpversion, path, found);
+        read_write_file(info->client, path);
     } else {
-        construct_file_response(client, request.httpversion, path, not_found);
+        construct_file_response(info->client, request.httpversion, path, not_found);
     }
 
     free(request.method);
@@ -269,7 +257,7 @@ void *process_client_request(void *args) {
 
     free(path);
 
-    close(client);
+    close(info->client);
 
     return NULL;
 
@@ -291,8 +279,6 @@ int main(int argc, char *argv[]) {
     /* Assumes port number is valid */
     portno = atoi(argv[1]);
 
-    webroot = argv[2];
-
     /* Construct socket */
     sockfd = setup_listening_socket(portno, MAX_CONNECTIONS);
 
@@ -308,8 +294,13 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
+        client_info *info = malloc(sizeof *info);
+        exit_if_null(info);
+        info->client = client;
+        info->webroot = argv[2];
+
         /* Create new thread */
-        if (pthread_create(&thread_id, NULL, process_client_request, &client)) {
+        if (pthread_create(&thread_id, NULL, process_client_request, info)) {
             perror("Error: failed to create thread");
             exit(EXIT_FAILURE);
         }

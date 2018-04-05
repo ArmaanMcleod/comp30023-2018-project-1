@@ -21,6 +21,12 @@
 /* Macros */
 #define ARRAY_LENGTH(x) (sizeof x / sizeof *x)
 
+/* Constants */
+const char *found = "%s 200 OK\r\n";
+const char *not_found = "%s 404\r\n";
+const char *content_header = "Content-Type: %s\r\n";
+const char *length_header = "Content-Length: %s\r\n\r\n";
+
 /* HTTP request info */
 typedef struct {
     char *method;
@@ -28,10 +34,9 @@ typedef struct {
     char *httpversion;
 } http_request;
 
-/* Client information passed into thread */
+/* information that client needs */
 typedef struct {
     int client;
-    struct sockaddr_in client_addr;
     char *webroot;
 } client_info;
 
