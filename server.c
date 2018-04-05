@@ -1,6 +1,10 @@
 #include "server.h"
 #include "queue.h"
 
+Queue *client_queue;
+
+char *webroot = NULL;
+
 /* Sets up listening socket for server */
 int setup_listening_socket(int portno, int max_clients) {
     struct sockaddr_in serv_addr;
@@ -89,6 +93,7 @@ void parse_request(http_request *parameters, char *response) {
 /* Checks if a given extension is valid */
 /* Verifies that it is either .js, .jpg, .css or .html */
 bool supported_file(char *extension) {
+    printf("%s\n", extension);
     for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
 
         /* If extension is the same here, return */
@@ -114,7 +119,7 @@ char *get_full_path(const char *webroot, const char *path, int *status) {
     strcat(full_path, path);
 
     /* Gets the extension after the first dot character */
-    extension = strchr(full_path, '.');
+    extension = strrchr(full_path, '.');
 
     /* If full path is accessible and file is supported, update status to 200 */
     if (extension != NULL && access(full_path, F_OK) == 0 && supported_file(extension)) {
@@ -156,10 +161,8 @@ size_t get_length_bytes(size_t bytes) {
 /* Write file requested from 200 response */
 void read_write_file(int client, const char *path) {
     FILE *requested_file = NULL;
-    char buffer[BUFFER_SIZE];
     char *content_length = NULL;
-    size_t bytes_read;
-    size_t length_bytes, total_bytes;
+    size_t length_bytes, total_bytes, bytes_read;
 
     const char *length_header = "Content-Length: %s\r\n\r\n";
 
@@ -167,8 +170,16 @@ void read_write_file(int client, const char *path) {
     requested_file = fopen(path, "rb");
     exit_if_null(requested_file);
 
+    fseek(requested_file, 0, SEEK_END);
+    long file_size = ftell(requested_file);
+    fseek(requested_file, 0, SEEK_SET);
+
+    char *buffer = malloc(file_size + 1);
+    exit_if_null(buffer);
+
     /* Write contents of file to client socket */
-    while ((bytes_read = fread(buffer, 1, sizeof buffer, requested_file)) > 0) {
+    bytes_read = fread(buffer, 1, file_size, requested_file);
+    if (bytes_read > 0) {
 
         /* Get number of digits in bytes read */
         length_bytes = get_length_bytes(bytes_read);
@@ -190,7 +201,8 @@ void read_write_file(int client, const char *path) {
         free(content_length);
     }
 
-    /* Finished with file */
+    free(buffer);
+
     fclose(requested_file);
 }
 
@@ -202,7 +214,7 @@ void construct_file_response(int client, const char *httpversion, const char *pa
     write_headers(client, httpversion, status);
 
     /* Get the file extension */
-    requested_file_extension = strchr(path, '.');
+    requested_file_extension = strrchr(path, '.');
 
     /* Need to make sure an extension exists first */
     if (requested_file_extension != NULL) {
@@ -219,18 +231,20 @@ void construct_file_response(int client, const char *httpversion, const char *pa
 }
 
 /* Processes client request for a file */
-void *process_client_request(void *params) {
+void *process_client_request(void *args) {
+    int client = *(int *) args;
+
     char buffer[BUFFER_SIZE];
     http_request request;
     int status_code;
 
-    client_info *info = (client_info *)params;
+    //client_info *info = (client_info *)params;
 
     const char *found = "%s 200 OK\r\n";
     const char *not_found = "%s 404\r\n";
 
     /* Read in request */
-    if (read(info->client, buffer, BUFFER_SIZE - 1) == ERROR) {
+    if (read(client, buffer, BUFFER_SIZE - 1) == ERROR) {
         perror("Error: cannot read request");
         exit(EXIT_FAILURE);
     }
@@ -240,16 +254,14 @@ void *process_client_request(void *params) {
 
     /* get path of requested file */
     /* only needed for 200 response */
-    char *path = get_full_path(info->webroot, request.URI, &status_code);
+    char *path = get_full_path(webroot, request.URI, &status_code);
 
     if (status_code == FOUND) {
-        construct_file_response(info->client, request.httpversion, path, found);
-        read_write_file(info->client, path);
+        construct_file_response(client, request.httpversion, path, found);
+        read_write_file(client, path);
     } else {
-        construct_file_response(info->client, request.httpversion, path, not_found);
+        construct_file_response(client, request.httpversion, path, not_found);
     }
-
-    memset(buffer, '\0', sizeof buffer);
 
     free(request.method);
     free(request.URI);
@@ -257,10 +269,10 @@ void *process_client_request(void *params) {
 
     free(path);
 
-    close(info->client);
-    free(info);
+    close(client);
 
     return NULL;
+
 }
 
 int main(int argc, char *argv[]) {
@@ -279,6 +291,8 @@ int main(int argc, char *argv[]) {
     /* Assumes port number is valid */
     portno = atoi(argv[1]);
 
+    webroot = argv[2];
+
     /* Construct socket */
     sockfd = setup_listening_socket(portno, MAX_CONNECTIONS);
 
@@ -293,16 +307,9 @@ int main(int argc, char *argv[]) {
             perror("Error: cannot open socket");
             continue;
         }
-        
-        /* Insert client information here */
-        client_info *info = malloc(sizeof *info);
-        exit_if_null(info);
-        info->client = client;
-        info->client_addr = client_addr;
-        info->webroot = strdup(argv[2]);
 
         /* Create new thread */
-        if (pthread_create(&thread_id, NULL, process_client_request, info)) {
+        if (pthread_create(&thread_id, NULL, process_client_request, &client)) {
             perror("Error: failed to create thread");
             exit(EXIT_FAILURE);
         }
@@ -312,6 +319,7 @@ int main(int argc, char *argv[]) {
             perror("Error: failed to detach thread");
             exit(EXIT_FAILURE);
         }
+
     }
     close(sockfd);
 }
