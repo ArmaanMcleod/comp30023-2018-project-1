@@ -44,7 +44,6 @@ do_http_get () {
     header_pass=false
     get_pass=false
     mime_pass=false
-    echo "$test_url"
     wget -q --server-response -O $temp_file $test_url 2> $temp_header
     if [ "$test_resp" == "404" ];then
         if grep -Eiq 'HTTP/1.0 404|HTTP/1.1 404' $temp_header 
