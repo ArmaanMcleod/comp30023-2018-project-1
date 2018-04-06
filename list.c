@@ -175,7 +175,7 @@ void list_free(List *list) {
 /* Check if list is empty */
 bool list_is_empty(List *list) {
     assert(list != NULL);
-    return list->size > 0;
+    return (list->size == 0);
 }
 
 

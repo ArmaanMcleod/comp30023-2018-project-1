@@ -9,6 +9,15 @@
 #include <stdbool.h>
 
 #include "server.h"
+#include "queue.h"
+
+/* Thread pool information */
+typedef struct {
+    Queue *queue;
+    pthread_t threads[MAX_THREADS];
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+}thread_pool;
 
 /* webroot global variable */
 char *webroot = NULL;
@@ -38,7 +47,7 @@ int setup_listening_socket(int portno, int max_clients) {
     /* Set socket option SO_REUSEADDR. If a recently closed server wants to -
        use this port, and some of the leftover chunks is lingering around -
        we can still use this port */
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &setopt, sizeof setopt) == ERROR) { 
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&setopt, sizeof setopt) == ERROR) { 
         perror("Error: setting socket option for reusing address"); 
         exit(EXIT_FAILURE); 
     } 
@@ -169,20 +178,28 @@ size_t get_length_bytes(size_t bytes) {
 void read_write_file(int client, const char *path) {
     FILE *requested_file = NULL;
     char *content_length = NULL;
+    unsigned char *buffer = NULL;
     size_t length_bytes, total_bytes, bytes_read, buffer_size;
 
     /* Open contents of file in binary mode*/
     requested_file = fopen(path, "rb");
     exit_if_null(requested_file);
 
+    /* Get size of file */
     fseek(requested_file, 0, SEEK_END);
     long file_size = ftell(requested_file);
     fseek(requested_file, 0, SEEK_SET);
 
+    /* Allocate buffer big enough to hold file */
+    /* Since a file size can be anything, getting the file size beforehand -
+       avoids the danger of buffer overflow */
+    /* Having a sized buffer could be dangerous here */
     buffer_size = (size_t)file_size;
-    char *buffer = malloc(buffer_size + 1);
+    buffer = malloc(buffer_size + 1);
     exit_if_null(buffer);
 
+    /* Set everything to null terminating characters */
+    /* Avoids having to null terminate the buffer later on */
     memset(buffer, '\0', buffer_size + 1);
 
     /* Write contents of file to client socket */
@@ -205,9 +222,11 @@ void read_write_file(int client, const char *path) {
             exit(EXIT_FAILURE);
         }
 
+        /* Done with this pointer */
         free(content_length);
     }
 
+    /* buffer has served its purpose, free it up */
     free(buffer);
 
     fclose(requested_file);
@@ -222,22 +241,25 @@ void construct_file_response(int client, const char *httpversion, const char *pa
 
     /* Get the file extension */
     requested_file_extension = strrchr(path, '.');
+
+    /* If no extension exists, write no content response and exit */
     if (requested_file_extension == NULL) {
         write(client, no_content, strlen(no_content));
         return;
     }
 
+    /* otherwise, see if extension is served */
     for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
         if (strcmp(file_map[i].extension, requested_file_extension) == 0) {
 
             /* Write http content type */
             write_headers(client, file_map[i].mime_type, content_header);
-
             found = true;
-
             break;
         }
     }
+
+    /* No extension was found, write no content response */
     if (!found) {
         write(client, no_content, strlen(no_content));
     }
@@ -247,48 +269,72 @@ void construct_file_response(int client, const char *httpversion, const char *pa
 void *process_client_request(void *args) {
     char buffer[BUFFER_SIZE];
     char *path = NULL;
+    void *socket;
     http_request request;
     int status_code, client;
 
-    client = *(int *)args;
+    /* Extract threadpool contents */
+    thread_pool *pool = args;
 
-    /* Read in request */
-    if (read(client, buffer, BUFFER_SIZE - 1) == ERROR) {
-        perror("Error: cannot read request");
-        exit(EXIT_FAILURE);
+    while (1) {
+
+        /* Critical section */
+        pthread_mutex_lock(&pool->mutex);
+
+        /* waiting for work to come up */
+        while (queue_is_empty(pool->queue)) {
+            pthread_cond_wait(&pool->cond, &pool->mutex);
+        } 
+
+        /* deque first task */
+        socket = queue_dequeue(pool->queue);
+
+        pthread_mutex_unlock(&pool->mutex);
+
+        /* Get client socket id */
+        client = *(int *)socket;
+
+        /* Read in request */
+        if (read(client, buffer, BUFFER_SIZE - 1) == ERROR) {
+            perror("Error: cannot read request");
+            exit(EXIT_FAILURE);
+        }
+
+        /* Parse request parameters */
+        parse_request(&request, buffer);
+
+        /* Get absolute path of requested file */
+        /* Only needed for body of 200 response */
+        path = get_full_path(webroot, request.URI, &status_code);
+
+        /* Construct file responses, depending on status code */
+        if (status_code == FOUND) {
+            construct_file_response(client, request.httpversion, path, found);
+            read_write_file(client, path);
+        } else {
+            construct_file_response(client, request.httpversion, path, not_found);
+        }
+
+        /* Free up all the pointers on the heap */
+        free(request.method);
+        free(request.URI);
+        free(request.httpversion);
+
+        free(path);
+
+        /* Close the client socket */
+        close(client);
     }
 
-    /* Parse request parameters */
-    parse_request(&request, buffer);
-
-    /* get path of requested file */
-    /* only needed for 200 response */
-    path = get_full_path(webroot, request.URI, &status_code);
-
-    if (status_code == FOUND) {
-        construct_file_response(client, request.httpversion, path, found);
-        read_write_file(client, path);
-    } else {
-        construct_file_response(client, request.httpversion, path, not_found);
-    }
-
-    free(request.method);
-    free(request.URI);
-    free(request.httpversion);
-
-    free(path);
-
-    close(client);
-
-    return NULL;
-
+    /* Exit the thread */
+    pthread_exit(NULL);
 }
 
 int main(int argc, char *argv[]) {
     int sockfd, client, portno;
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof client_addr;
-    pthread_t thread_id;
+    thread_pool * pool = NULL;
 
     /* Check if enough command line arguements were given */
     if (argc != 3) {
@@ -302,6 +348,25 @@ int main(int argc, char *argv[]) {
 
     /* Update global webroot */
     webroot = argv[2];
+
+    /* Create thread pool */
+    pool = malloc(sizeof *pool);
+    exit_if_null(pool);
+
+    /* Initialise thread pool queue */
+    pool->queue = queue_new();
+
+    /* Initialise thread pool mutexes and conidtions */
+    pthread_mutex_init(&pool->mutex, NULL);
+    pthread_cond_init(&pool->cond, NULL);
+
+    /* Create threadpool worker threads */
+    for (size_t i = 0; i < MAX_THREADS; i++) {
+        if (pthread_create(&pool->threads[i], NULL, process_client_request, pool)) {
+            perror("Error: cannot create thread");
+            exit(EXIT_FAILURE);
+        }
+    }
 
     /* Construct socket */
     sockfd = setup_listening_socket(portno, MAX_CONNECTIONS);
@@ -318,18 +383,33 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        /* Create new thread */
-        if (pthread_create(&thread_id, NULL, process_client_request, &client)) {
-            perror("Error: failed to create thread");
-            exit(EXIT_FAILURE);
-        }
+        /* Critical section */
+        pthread_mutex_lock(&pool->mutex);
 
-        /* Detach this thread */
-        if (pthread_detach(thread_id)) {
-            perror("Error: failed to detach thread");
-            exit(EXIT_FAILURE);
-        }
+        /* Add client to the queue */
+        queue_enqueue(pool->queue, &client);
+
+        pthread_mutex_unlock(&pool->mutex);
+
+        /* Send a signal to worker threads that a client task has been added */
+        pthread_cond_signal(&pool->cond);
 
     }
+    /* Free up the the queue */
+    queue_free(pool->queue);
+
+    /* Join the threads back up together */
+    for (size_t i = 0; i < MAX_THREADS; i++) {
+        pthread_join(pool->threads[i], NULL);
+    }
+
+    /* Destroy the mutex and conditions */
+    pthread_mutex_destroy(&pool->mutex);
+    pthread_cond_destroy(&pool->cond);
+
+    /* Free up the thread pool */
+    free(pool);
+
+    /* Close up the server socket, just in case */
     close(sockfd);
 }

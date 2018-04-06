@@ -17,7 +17,7 @@ typedef struct {
 } List;
 
 /* Create a new linked list */
-List *list_new(void);
+List *list_new();
 
 /* Prepend item to the beginning og linked list */
 void list_add_start(List *list, void *data);
