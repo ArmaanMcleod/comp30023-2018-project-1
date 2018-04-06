@@ -1,6 +1,10 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include <pthread.h>
+
+#include "queue.h"
+
 /* Constants */
 #define NOT_FOUND 404
 #define FOUND 200
@@ -19,7 +23,6 @@ const char *content_header = "Content-Type: %s\r\n";
 const char *length_header = "Content-Length: %s\r\n\r\n";
 const char *no_content = "Content-Type: application/octet-stream\r\n"
                          "Content-Length: 0\r\n\r\n";
-//const char *html = "<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>";
 
 /* HTTP request info */
 typedef struct {
@@ -28,10 +31,13 @@ typedef struct {
     char *httpversion;
 } http_request;
 
+/* Thread pool information */
 typedef struct {
-    pthread_t thread;
-    int id;
-} thread_args;
+    Queue *queue;
+    pthread_t threads[MAX_THREADS];
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+}thread_pool;
 
 /* Served file information, including mime types */
 typedef struct {

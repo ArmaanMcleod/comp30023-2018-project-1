@@ -9,15 +9,6 @@
 #include <stdbool.h>
 
 #include "server.h"
-#include "queue.h"
-
-/* Thread pool information */
-typedef struct {
-    Queue *queue;
-    pthread_t threads[MAX_THREADS];
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-}thread_pool;
 
 /* webroot global variable */
 char *webroot = NULL;
@@ -82,6 +73,7 @@ void exit_if_null(void *ptr) {
 
 /* Parses HTTP request header */
 /* Gets method, URI and version */
+/* Got inspiration to use strtok_r from Linux man page */
 void parse_request(http_request *parameters, char *response) {
     char *saveptr = NULL, *path = NULL, *copy = NULL;
 
