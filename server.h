@@ -13,9 +13,10 @@
 
 /* Header constants */
 const char *found = "%s 200 OK\r\n";
-const char *not_found = "%s 404\r\n";
+const char *not_found = "%s 404 Not Found\r\n";
 const char *content_header = "Content-Type: %s\r\n";
 const char *length_header = "Content-Length: %s\r\n\r\n";
+const char *no_content = "Content-Type: application/octet-stream\r\nContent-Length: 0\r\n\r\n";
 
 /* HTTP request info */
 typedef struct {

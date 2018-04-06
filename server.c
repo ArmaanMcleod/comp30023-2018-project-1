@@ -10,6 +10,7 @@
 
 #include "server.h"
 
+/* webroot global variable */
 char *webroot = NULL;
 
 /* Sets up listening socket for server */
@@ -100,7 +101,6 @@ void parse_request(http_request *parameters, char *response) {
 /* Checks if a given extension is valid */
 /* Verifies that it is either .js, .jpg, .css or .html */
 bool supported_file(char *extension) {
-    printf("%s\n", extension);
     for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
 
         /* If extension is the same here, return */
@@ -215,24 +215,31 @@ void read_write_file(int client, const char *path) {
 
 void construct_file_response(int client, const char *httpversion, const char *path, const char *status) {
     char *requested_file_extension = NULL;
+    bool found = false;
 
     /* Write the status header */
     write_headers(client, httpversion, status);
 
     /* Get the file extension */
     requested_file_extension = strrchr(path, '.');
+    if (requested_file_extension == NULL) {
+        write(client, no_content, strlen(no_content));
+        return;
+    }
 
-    /* Need to make sure an extension exists first */
-    if (requested_file_extension != NULL) {
-        for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
-            if (strcmp(file_map[i].extension, requested_file_extension) == 0) {
+    for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
+        if (strcmp(file_map[i].extension, requested_file_extension) == 0) {
 
-                /* Write http content type */
-                write_headers(client, file_map[i].mime_type, content_header);
+            /* Write http content type */
+            write_headers(client, file_map[i].mime_type, content_header);
 
-                break;
-            }
+            found = true;
+
+            break;
         }
+    }
+    if (!found) {
+        write(client, no_content, strlen(no_content));
     }
 }
 
