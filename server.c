@@ -10,11 +10,26 @@
 
 #include "server.h"
 
-/* webroot global variable */
+/* Header constants */
+const char *found = "%s 200 OK\r\n";
+const char *not_found = "%s 404 Not Found\r\n";
+const char *content_header = "Content-Type: %s\r\n";
+const char *length_header = "Content-Length: %s\r\n\r\n";
+const char *no_content = "Content-Type: application/octet-stream\r\n"
+                         "Content-Length: 0\r\n\r\n";
+
+/* Hardcoded mime types */
+const file_properties file_map[] = {
+    {".html", "text/html"},
+    {".jpg", "image/jpeg"},
+    {".css", "text/css"},
+    {".js", "text/javascript"}
+};
+
 char *webroot = NULL;
 
 /* Sets up listening socket for server */
-int setup_listening_socket(int portno, int max_clients) {
+static int setup_listening_socket(int portno, int max_clients) {
     struct sockaddr_in serv_addr;
     int sock, setopt = 1;
 
@@ -38,7 +53,7 @@ int setup_listening_socket(int portno, int max_clients) {
     /* Set socket option SO_REUSEADDR. If a recently closed server wants to -
        use this port, and some of the leftover chunks is lingering around -
        we can still use this port */
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&setopt, sizeof setopt) == ERROR) { 
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &setopt, sizeof setopt) == ERROR) { 
         perror("Error: setting socket option for reusing address"); 
         exit(EXIT_FAILURE); 
     } 
@@ -64,17 +79,19 @@ int setup_listening_socket(int portno, int max_clients) {
 }
 
 /* Used for checking null pointers */
-void exit_if_null(void *ptr) {
+static void exit_if_null(void *ptr) {
     if (ptr == NULL) {
         perror("Error: unexpected null pointer");
         exit(EXIT_FAILURE);
     }
+
+    return;
 }
 
 /* Parses HTTP request header */
 /* Gets method, URI and version */
 /* Got inspiration to use strtok_r from Linux man page */
-void parse_request(http_request *parameters, char *response) {
+static void parse_request(http_request *parameters, char *response) {
     char *saveptr = NULL, *path = NULL, *copy = NULL;
 
     /* Copy over the response */
@@ -101,7 +118,7 @@ void parse_request(http_request *parameters, char *response) {
 
 /* Checks if a given extension is valid */
 /* Verifies that it is either .js, .jpg, .css or .html */
-bool supported_file(char *extension) {
+static bool supported_file(char *extension) {
     for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
 
         /* If extension is the same here, return */
@@ -114,7 +131,7 @@ bool supported_file(char *extension) {
 }
 
 /* Gets full path of requested file */
-char *get_full_path(const char *webroot, const char *path, int *status) {
+static char *get_full_path(const char *webroot, const char *path, int *status) {
     char *full_path = NULL, *extension = NULL;
     *status = NOT_FOUND;
 
@@ -139,7 +156,7 @@ char *get_full_path(const char *webroot, const char *path, int *status) {
 }
 
 /* Write 200 response headers */
-void write_headers(int client, const char *data, const char *defaults) {
+static void write_headers(int client, const char *data, const char *defaults) {
     char *buffer = malloc(strlen(data) + strlen(defaults) + 1);
     exit_if_null(buffer);
 
@@ -152,10 +169,12 @@ void write_headers(int client, const char *data, const char *defaults) {
     }
 
     free(buffer);
+
+    return;
 }
 
 /* Calculates length of number */
-size_t get_length_bytes(size_t bytes) {
+static size_t get_length_bytes(size_t bytes) {
     size_t temp = bytes, count = 0;
 
     while (temp != 0) {
@@ -167,7 +186,7 @@ size_t get_length_bytes(size_t bytes) {
 }
 
 /* Write file requested from 200 response */
-void read_write_file(int client, const char *path) {
+static void read_write_file(int client, const char *path) {
     FILE *requested_file = NULL;
     char *content_length = NULL;
     unsigned char *buffer = NULL;
@@ -222,9 +241,11 @@ void read_write_file(int client, const char *path) {
     free(buffer);
 
     fclose(requested_file);
+
+    return;
 }
 
-void construct_file_response(int client, const char *httpversion, const char *path, const char *status) {
+static void construct_file_response(int client, const char *httpversion, const char *path, const char *status) {
     char *requested_file_extension = NULL;
     bool found = false;
 
@@ -255,13 +276,15 @@ void construct_file_response(int client, const char *httpversion, const char *pa
     if (!found) {
         write(client, no_content, strlen(no_content));
     }
+
+    return;
 }
 
 /* Processes client request for a file */
-void *process_client_request(void *args) {
+static void *process_client_request(void *args) {
     char buffer[BUFFER_SIZE];
     char *path = NULL;
-    void *socket;
+    void *socket = NULL;
     http_request request;
     int status_code, client;
 
