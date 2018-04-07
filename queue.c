@@ -5,7 +5,7 @@
 #include "queue.h"
 
 /* Create new FIFO queue */
-Queue *queue_new(void) {
+Queue *queue_new() {
     Queue * queue = malloc(sizeof *queue);
     assert(queue != NULL);
 

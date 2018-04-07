@@ -10,7 +10,7 @@ typedef struct {
 } Queue;
 
 /* Create a new FIFO queue and return its pointer */
-Queue *queue_new(void);
+Queue *queue_new();
 
 /* Add data to the front of the queue */
 void queue_enqueue(Queue *queue, void *data);

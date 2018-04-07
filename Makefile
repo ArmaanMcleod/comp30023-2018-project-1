@@ -6,6 +6,10 @@ EXE    = server
 $(EXE): $(OBJ)
 	$(CC) $(CFLAGS) -o $(EXE) $(OBJ)
 
+server.o: server.h queue.h
+queue.o: queue.h list.h
+list.o: list.h
+
 clean:
 	rm $(OBJ) $(EXE)
 

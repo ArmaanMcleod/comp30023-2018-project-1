@@ -5,7 +5,7 @@
 #include "list.h"
 
 /* Pointer to new linked list */
-List *list_new(void) {
+List *list_new() {
     List *list = malloc(sizeof *list);
     assert(list != NULL);
 
