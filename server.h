@@ -24,6 +24,7 @@ extern const char *found;
 extern const char *not_found;
 extern const char *content_header;
 extern const char *length_header;
+extern const char *not_supported;
 extern const char *no_content;
 
 /* HTTP request info */

@@ -12,11 +12,12 @@
 
 /* Header constants */
 const char *found = "%s 200 OK\r\n";
-const char *not_found = "%s 404 Not Found\r\n";
 const char *content_header = "Content-Type: %s\r\n";
 const char *length_header = "Content-Length: %s\r\n\r\n";
-const char *no_content = "Content-Type: application/octet-stream\r\n"
-                         "Content-Length: 0\r\n\r\n";
+
+const char *not_found = "%s 404 Not Found\r\n";
+const char *not_supported = "Content-Type: application/octet-stream\r\n";
+const char *no_content = "Content-Length: 0\r\n\r\n";
 
 /* Hardcoded mime types */
 const file_properties file_map[] = {
@@ -257,7 +258,7 @@ static void construct_file_response(int client, const char *httpversion, const c
 
     /* If no extension exists, write no content response and exit */
     if (requested_file_extension == NULL) {
-        write(client, no_content, strlen(no_content));
+        write(client, not_supported, strlen(not_supported));
         return;
     }
 
@@ -274,7 +275,7 @@ static void construct_file_response(int client, const char *httpversion, const c
 
     /* No extension was found, write no content response */
     if (!found) {
-        write(client, no_content, strlen(no_content));
+        write(client, not_supported, strlen(not_supported));
     }
 
     return;
@@ -328,6 +329,7 @@ static void *process_client_request(void *args) {
             read_write_file(client, path);
         } else {
             construct_file_response(client, request.httpversion, path, not_found);
+            write(client, no_content, strlen(no_content));
         }
 
         /* Free up all the pointers on the heap */
@@ -341,7 +343,6 @@ static void *process_client_request(void *args) {
         close(client);
     }
 
-    /* Exit the thread */
     pthread_exit(NULL);
 }
 
@@ -349,7 +350,7 @@ int main(int argc, char *argv[]) {
     int sockfd, client, portno;
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof client_addr;
-    thread_pool * pool = NULL;
+    thread_pool *pool = NULL;
 
     /* Check if enough command line arguements were given */
     if (argc != 3) {
@@ -427,4 +428,5 @@ int main(int argc, char *argv[]) {
 
     /* Close up the server socket, just in case */
     close(sockfd);
+
 }
