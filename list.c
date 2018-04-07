@@ -24,12 +24,7 @@ void list_add_start(List *list, void *data) {
     Node *newnode = malloc(sizeof *newnode);
     assert(newnode != NULL);
 
-    /* Allocate size for data to be stored in node */
-    newnode->data = malloc(sizeof *data);
-    assert(newnode->data != NULL);
-
-    /* Safetly copy over node */
-    memcpy(newnode->data, data, sizeof *data);
+    newnode->data = data;
 
     /* Old head is now the next node */
     newnode->next = list->head;
@@ -52,12 +47,7 @@ void list_add_end(List *list, void *data) {
     Node *newnode = malloc(sizeof *newnode);
     assert(newnode != NULL);
 
-    /* Allocate size for data to be stored in node */
-    newnode->data = malloc(sizeof *data);
-    assert(newnode->data != NULL);
-
-    /* Safetly copy over node */
-    memcpy(newnode->data, data, sizeof *data);
+    newnode->data = data;
 
     /* Insert newnode data */
     newnode->next = NULL;

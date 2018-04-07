@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <signal.h>
 
 #include "server.h"
 
@@ -292,7 +293,7 @@ static void *process_client_request(void *args) {
     /* Extract threadpool contents */
     thread_pool *pool = args;
 
-    while (1) {
+    while (true) {
 
         /* Critical section */
         pthread_mutex_lock(&pool->mutex);
@@ -409,15 +410,15 @@ int main(int argc, char *argv[]) {
 
         /* Send a signal to worker threads that a client task has been added */
         pthread_cond_signal(&pool->cond);
-
     }
-    /* Free up the the queue */
-    queue_free(pool->queue);
 
     /* Join the threads back up together */
     for (size_t i = 0; i < MAX_THREADS; i++) {
         pthread_join(pool->threads[i], NULL);
     }
+
+    /* Free up the the queue */
+    queue_free(pool->queue);
 
     /* Destroy the mutex and conditions */
     pthread_mutex_destroy(&pool->mutex);
@@ -428,5 +429,4 @@ int main(int argc, char *argv[]) {
 
     /* Close up the server socket, just in case */
     close(sockfd);
-
 }
