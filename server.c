@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdbool.h>
-#include <signal.h>
 
 #include "server.h"
 
@@ -28,6 +27,7 @@ const file_properties file_map[] = {
     {".js", "text/javascript"}
 };
 
+/* Web root gloabl variable */
 char *webroot = NULL;
 
 /* Sets up listening socket for server */
@@ -55,13 +55,15 @@ static int setup_listening_socket(int portno, int max_clients) {
     /* Set socket option SO_REUSEADDR. If a recently closed server wants to -
        use this port, and some of the leftover chunks is lingering around -
        we can still use this port */
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &setopt, sizeof setopt) == ERROR) { 
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, 
+                &setopt, sizeof setopt) == ERROR) { 
+
         perror("Error: setting socket option for reusing address"); 
         exit(EXIT_FAILURE); 
     } 
 
     /* Bind address to the socket */
-    if (bind(sock, (struct sockaddr *) &serv_addr, sizeof serv_addr) == ERROR) {
+    if (bind(sock, (struct sockaddr *)&serv_addr, sizeof serv_addr) == ERROR) {
         perror("Error: cannot bind address to socket");
         exit(EXIT_FAILURE);
     }
@@ -93,7 +95,7 @@ static void exit_if_null(void *ptr) {
 /* Parses HTTP request header */
 /* Gets method, URI and version */
 /* Got inspiration to use strtok_r from Linux man page */
-static void parse_request(http_request *parameters, char *response) {
+static void parse_request(http_request *parameters, const char *response) {
     char *saveptr = NULL, *path = NULL, *copy = NULL;
 
     /* Copy over the response */
@@ -120,7 +122,7 @@ static void parse_request(http_request *parameters, char *response) {
 
 /* Checks if a given extension is valid */
 /* Verifies that it is either .js, .jpg, .css or .html */
-static bool supported_file(char *extension) {
+static bool supported_file(const char *extension) {
     for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
 
         /* If extension is the same here, return */
@@ -133,7 +135,9 @@ static bool supported_file(char *extension) {
 }
 
 /* Gets full path of requested file */
-static char *get_full_path(const char *webroot, const char *path, int *status) {
+static char *get_full_path(const char *webroot, 
+                           const char *path, int *status) {
+
     char *full_path = NULL, *extension = NULL;
     *status = NOT_FOUND;
 
@@ -149,7 +153,10 @@ static char *get_full_path(const char *webroot, const char *path, int *status) {
     extension = strrchr(full_path, '.');
 
     /* If full path is accessible and file is supported, update status to 200 */
-    if (extension != NULL && access(full_path, F_OK) == 0 && supported_file(extension)) {
+    if (extension != NULL && 
+        access(full_path, F_OK) == 0 && 
+        supported_file(extension)) {
+
         *status = FOUND;
     }
 
@@ -187,12 +194,34 @@ static size_t get_length_bytes(size_t bytes) {
     return count;
 }
 
+/* Write content_length for requested file */
+void write_content_length(int client, size_t bytes_read) {
+    char *content_length = NULL;
+    size_t length_bytes, total_bytes;
+
+    /* Get number of digits in bytes read */
+    length_bytes = get_length_bytes(bytes_read);
+    total_bytes = strlen(length_header) + length_bytes;
+
+    /* Write content length */
+    content_length = malloc(total_bytes + 1);
+    exit_if_null(content_length);
+
+    /* copy bytes reead into buffer */
+    snprintf(content_length, total_bytes + 1, "%zu", bytes_read);
+    write_headers(client, content_length, length_header);
+
+    /* Done with this buffer */
+    free(content_length);
+
+    return;
+}
+
 /* Write file requested from 200 response */
 static void read_write_file(int client, const char *path) {
     FILE *requested_file = NULL;
-    char *content_length = NULL;
     unsigned char *buffer = NULL;
-    size_t length_bytes, total_bytes, bytes_read, buffer_size;
+    size_t  bytes_read, buffer_size;
 
     /* Open contents of file in binary mode*/
     requested_file = fopen(path, "rb");
@@ -218,25 +247,15 @@ static void read_write_file(int client, const char *path) {
     /* Write contents of file to client socket */
     bytes_read = fread(buffer, 1, file_size, requested_file);
     if (bytes_read == buffer_size) {
-        /* Get number of digits in bytes read */
-        length_bytes = get_length_bytes(bytes_read);
-        total_bytes = strlen(length_header) + length_bytes;
 
-        /* Write content length */
-        content_length = malloc(total_bytes + 1);
-        exit_if_null(content_length);
-
-        snprintf(content_length, total_bytes + 1, "%zu", bytes_read);
-        write_headers(client, content_length, length_header);
+        /* Write content length header */
+        write_content_length(client, bytes_read);
         
         /* Write body of header to socket */
         if (write(client, buffer, bytes_read) == ERROR) {
             perror("Error: cannot write to socket");
             exit(EXIT_FAILURE);
         }
-
-        /* Done with this pointer */
-        free(content_length);
     }
 
     /* buffer has served its purpose, free it up */
@@ -247,7 +266,9 @@ static void read_write_file(int client, const char *path) {
     return;
 }
 
-static void construct_file_response(int client, const char *httpversion, const char *path, const char *status) {
+static void construct_file_response(int client, const char *httpversion, 
+                                    const char *path, const char *status) {
+
     char *requested_file_extension = NULL;
     bool found = false;
 
@@ -257,7 +278,7 @@ static void construct_file_response(int client, const char *httpversion, const c
     /* Get the file extension */
     requested_file_extension = strrchr(path, '.');
 
-    /* If no extension exists, write no content response and exit */
+    /* If no extension exists, write appropriate response and exit */
     if (requested_file_extension == NULL) {
         write(client, not_supported, strlen(not_supported));
         return;
@@ -274,7 +295,7 @@ static void construct_file_response(int client, const char *httpversion, const c
         }
     }
 
-    /* No extension was found, write no content response */
+    /* No extension was found, write appropriate response */
     if (!found) {
         write(client, not_supported, strlen(not_supported));
     }
@@ -282,13 +303,51 @@ static void construct_file_response(int client, const char *httpversion, const c
     return;
 }
 
-/* Processes client request for a file */
-static void *process_client_request(void *args) {
+static void process_client_request(int client) {
     char buffer[BUFFER_SIZE];
     char *path = NULL;
-    void *socket = NULL;
     http_request request;
-    int status_code, client;
+    int status_code;
+
+    /* Read in request */
+    if (read(client, buffer, BUFFER_SIZE - 1) == ERROR) {
+        perror("Error: cannot read request");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Parse request parameters */
+    parse_request(&request, buffer);
+
+    /* Get absolute path of requested file */
+    /* Only needed for body of 200 response */
+    path = get_full_path(webroot, request.URI, &status_code);
+
+    /* Construct file responses, depending on status code */
+    if (status_code == FOUND) {
+        construct_file_response(client, request.httpversion, path, found);
+        read_write_file(client, path);
+    } else {
+        construct_file_response(client, request.httpversion, path, not_found);
+        write(client, no_content, strlen(no_content));
+    }
+
+    /* Free up all the pointers on the heap */
+    free(request.method);
+    free(request.URI);
+    free(request.httpversion);
+
+    free(path);
+
+    /* Close the client socket */
+    close(client);
+
+    return;
+}
+
+/* Processes client request for a file */
+static void *handle_client_request(void *args) {
+    void *socket = NULL;
+    int client;
 
     /* Extract threadpool contents */
     thread_pool *pool = args;
@@ -311,40 +370,91 @@ static void *process_client_request(void *args) {
         /* Get client socket id */
         client = *(int *)socket;
 
-        /* Read in request */
-        if (read(client, buffer, BUFFER_SIZE - 1) == ERROR) {
-            perror("Error: cannot read request");
-            exit(EXIT_FAILURE);
-        }
+        /* process client task here */
+        process_client_request(client);
 
-        /* Parse request parameters */
-        parse_request(&request, buffer);
-
-        /* Get absolute path of requested file */
-        /* Only needed for body of 200 response */
-        path = get_full_path(webroot, request.URI, &status_code);
-
-        /* Construct file responses, depending on status code */
-        if (status_code == FOUND) {
-            construct_file_response(client, request.httpversion, path, found);
-            read_write_file(client, path);
-        } else {
-            construct_file_response(client, request.httpversion, path, not_found);
-            write(client, no_content, strlen(no_content));
-        }
-
-        /* Free up all the pointers on the heap */
-        free(request.method);
-        free(request.URI);
-        free(request.httpversion);
-
-        free(path);
-
-        /* Close the client socket */
-        close(client);
     }
 
     pthread_exit(NULL);
+}
+
+/* Clean up the thread pool */
+static void cleanup_pool(thread_pool *pool) {
+
+    /* Join the threads back up together */
+    for (size_t i = 0; i < MAX_THREADS; i++) {
+        pthread_join(pool->threads[i], NULL);
+    }
+
+    /* Free up the the queue */
+    queue_free(pool->queue);
+
+    /* Destroy the mutex and conditions */
+    pthread_mutex_destroy(&pool->mutex);
+    pthread_cond_destroy(&pool->cond);
+
+    /* Free up the thread pool */
+    free(pool);
+
+    return;
+}
+
+/* Create workers here */
+static void create_workers(thread_pool *pool, const size_t max_threads) {
+    /* Create threadpool worker threads */
+    for (size_t i = 0; i < max_threads; i++) {
+        if (pthread_create(&pool->threads[i], NULL, 
+                           handle_client_request, pool)) {
+
+            perror("Error: cannot create thread");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    return;
+}
+
+/* Creates a new threadpool */
+static thread_pool *initialise_threadpool() {
+    thread_pool *pool = NULL;
+
+    /* Create thread pool */
+    pool = malloc(sizeof *pool);
+    exit_if_null(pool);
+
+    /* Initialise thread pool queue */
+    pool->queue = queue_new();
+
+    /* Initialise thread pool mutex */
+    if (pthread_mutex_init(&pool->mutex, NULL)) {
+        perror("Error: mutex init failed");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Initialise thread pool condition */
+    if (pthread_cond_init(&pool->cond, NULL)) {
+        perror("Error: cond init failed");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Create workers for thread pool */
+    create_workers(pool, MAX_THREADS);
+
+    return pool;
+}
+
+/* Add client work to task queue */
+static void add_client_work(thread_pool *pool, int *client) {
+    /* Critical section */
+    pthread_mutex_lock(&pool->mutex);
+
+    /* Add client to the queue */
+    queue_enqueue(pool->queue, client);
+
+    pthread_mutex_unlock(&pool->mutex);
+
+    /* Send a signal to worker threads that a client task has been added */
+    pthread_cond_signal(&pool->cond);
 }
 
 int main(int argc, char *argv[]) {
@@ -366,24 +476,7 @@ int main(int argc, char *argv[]) {
     /* Update global webroot */
     webroot = argv[2];
 
-    /* Create thread pool */
-    pool = malloc(sizeof *pool);
-    exit_if_null(pool);
-
-    /* Initialise thread pool queue */
-    pool->queue = queue_new();
-
-    /* Initialise thread pool mutexes and conidtions */
-    pthread_mutex_init(&pool->mutex, NULL);
-    pthread_cond_init(&pool->cond, NULL);
-
-    /* Create threadpool worker threads */
-    for (size_t i = 0; i < MAX_THREADS; i++) {
-        if (pthread_create(&pool->threads[i], NULL, process_client_request, pool)) {
-            perror("Error: cannot create thread");
-            exit(EXIT_FAILURE);
-        }
-    }
+    pool = initialise_threadpool();
 
     /* Construct socket */
     sockfd = setup_listening_socket(portno, MAX_CONNECTIONS);
@@ -393,40 +486,21 @@ int main(int argc, char *argv[]) {
     while (true) {
 
         /* Accept a connection - block until a connection is ready to -
-           be accepted. Get back a new extension descriptor to communicate on. */
+           be accepted. Fetch new extension descriptor to communicate on. */
         client = accept(sockfd, (struct sockaddr *) &client_addr, &client_len);
         if (client == ERROR) {
             perror("Error: cannot open socket");
             continue;
         }
 
-        /* Critical section */
-        pthread_mutex_lock(&pool->mutex);
-
-        /* Add client to the queue */
-        queue_enqueue(pool->queue, &client);
-
-        pthread_mutex_unlock(&pool->mutex);
-
-        /* Send a signal to worker threads that a client task has been added */
-        pthread_cond_signal(&pool->cond);
+        add_client_work(pool, &client);
     }
-
-    /* Join the threads back up together */
-    for (size_t i = 0; i < MAX_THREADS; i++) {
-        pthread_join(pool->threads[i], NULL);
-    }
-
-    /* Free up the the queue */
-    queue_free(pool->queue);
-
-    /* Destroy the mutex and conditions */
-    pthread_mutex_destroy(&pool->mutex);
-    pthread_cond_destroy(&pool->cond);
-
-    /* Free up the thread pool */
-    free(pool);
 
     /* Close up the server socket, just in case */
     close(sockfd);
+
+    /* Clean up the thread pool, just for good measure */
+    cleanup_pool(pool);
+
+    exit(EXIT_SUCCESS);
 }

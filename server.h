@@ -8,8 +8,8 @@
 /* Constants */
 #define NOT_FOUND 404
 #define FOUND 200
-#define MAX_CONNECTIONS 100
 #define MAX_THREADS 100
+#define MAX_CONNECTIONS 100
 #define BUFFER_SIZE 1024
 #define ERROR -1
 
@@ -40,7 +40,7 @@ typedef struct {
     pthread_t threads[MAX_THREADS];
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-}thread_pool;
+} thread_pool;
 
 /* Served file information, including mime types */
 typedef struct {
