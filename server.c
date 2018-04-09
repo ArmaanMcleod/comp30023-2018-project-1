@@ -5,10 +5,10 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
-#include <pthread.h>
 #include <stdbool.h>
 
 #include "server.h"
+#include "threadpool.h"
 
 /* Header constants */
 const char *found = "%s 200 OK\r\n";
@@ -303,7 +303,7 @@ static void construct_file_response(int client, const char *httpversion,
     return;
 }
 
-static void process_client_request(int client) {
+void process_client_request(int client) {
     char buffer[BUFFER_SIZE];
     char *path = NULL;
     http_request request;
@@ -344,119 +344,6 @@ static void process_client_request(int client) {
     return;
 }
 
-/* Processes client request for a file */
-static void *handle_client_request(void *args) {
-    void *socket = NULL;
-    int client;
-
-    /* Extract threadpool contents */
-    thread_pool *pool = args;
-
-    while (true) {
-
-        /* Critical section */
-        pthread_mutex_lock(&pool->mutex);
-
-        /* waiting for work to come up */
-        while (queue_is_empty(pool->task_queue)) {
-            pthread_cond_wait(&pool->cond, &pool->mutex);
-        } 
-
-        /* deque first task */
-        socket = queue_dequeue(pool->task_queue);
-
-        pthread_mutex_unlock(&pool->mutex);
-
-        /* Get client socket id */
-        client = *(int *)socket;
-
-        /* process client task here */
-        process_client_request(client);
-
-    }
-
-    pthread_exit(NULL);
-}
-
-/* Clean up the thread pool */
-static void cleanup_pool(thread_pool *pool) {
-
-    /* Join the threads back up together */
-    for (size_t i = 0; i < MAX_THREADS; i++) {
-        pthread_join(pool->threads[i], NULL);
-    }
-
-    /* Free up the the task_queue */
-    queue_free(pool->task_queue);
-
-    /* Destroy the mutex and conditions */
-    pthread_mutex_destroy(&pool->mutex);
-    pthread_cond_destroy(&pool->cond);
-
-    /* Free up the thread pool */
-    free(pool);
-
-    return;
-}
-
-/* Create workers here */
-static void create_workers(thread_pool *pool, size_t max_threads) {
-    /* Create threadpool worker threads */
-    for (size_t i = 0; i < max_threads; i++) {
-        if (pthread_create(&pool->threads[i], NULL, 
-                           handle_client_request, pool)) {
-
-            perror("Error: cannot create thread");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    return;
-}
-
-/* Creates a new threadpool */
-static thread_pool *initialise_threadpool() {
-    thread_pool *pool = NULL;
-
-    /* Create thread pool */
-    pool = malloc(sizeof *pool);
-    exit_if_null(pool);
-
-    /* Initialise thread pool task_queue */
-    pool->task_queue = queue_new();
-
-    /* Initialise thread pool mutex */
-    if (pthread_mutex_init(&pool->mutex, NULL)) {
-        perror("Error: mutex init failed");
-        exit(EXIT_FAILURE);
-    }
-
-    /* Initialise thread pool condition */
-    if (pthread_cond_init(&pool->cond, NULL)) {
-        perror("Error: cond init failed");
-        exit(EXIT_FAILURE);
-    }
-
-    /* Create workers for thread pool */
-    create_workers(pool, MAX_THREADS);
-
-    return pool;
-}
-
-/* Add client work to task task_queue */
-static void add_client_work(thread_pool *pool, int *client) {
-    /* Critical section */
-    pthread_mutex_lock(&pool->mutex);
-
-    /* Add client to the task_queue */
-    queue_enqueue(pool->task_queue, client);
-
-    pthread_mutex_unlock(&pool->mutex);
-
-    /* Send a signal to worker threads that a client task has been added */
-    pthread_cond_signal(&pool->cond);
-}
-
 int main(int argc, char *argv[]) {
     int sockfd, client, portno;
     struct sockaddr_in client_addr;
@@ -476,7 +363,7 @@ int main(int argc, char *argv[]) {
     /* Update global webroot */
     webroot = argv[2];
 
-    pool = initialise_threadpool();
+    pool = initialise_threadpool(process_client_request);
 
     /* Construct socket */
     sockfd = setup_listening_socket(portno, MAX_CONNECTIONS);

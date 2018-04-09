@@ -1,6 +1,6 @@
 CC     = gcc
 CFLAGS = -Wall -Wextra -pthread
-OBJ    = server.o queue.o list.o 
+OBJ    = server.o threadpool.o queue.o list.o 
 EXE    = server
 
 $(EXE): $(OBJ)
