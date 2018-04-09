@@ -83,7 +83,7 @@ static int setup_listening_socket(int portno, int max_clients) {
 }
 
 /* Used for checking null pointers */
-static void exit_if_null() {
+static void exit_if_null(void *ptr) {
     if (ptr == NULL) {
         perror("Error: unexpected null pointer");
         exit(EXIT_FAILURE);
@@ -358,12 +358,12 @@ static void *handle_client_request(void *args) {
         pthread_mutex_lock(&pool->mutex);
 
         /* waiting for work to come up */
-        while (queue_is_empty(pool->queue)) {
+        while (queue_is_empty(pool->task_queue)) {
             pthread_cond_wait(&pool->cond, &pool->mutex);
         } 
 
         /* deque first task */
-        socket = queue_dequeue(pool->queue);
+        socket = queue_dequeue(pool->task_queue);
 
         pthread_mutex_unlock(&pool->mutex);
 
@@ -386,8 +386,8 @@ static void cleanup_pool(thread_pool *pool) {
         pthread_join(pool->threads[i], NULL);
     }
 
-    /* Free up the the queue */
-    queue_free(pool->queue);
+    /* Free up the the task_queue */
+    queue_free(pool->task_queue);
 
     /* Destroy the mutex and conditions */
     pthread_mutex_destroy(&pool->mutex);
@@ -422,8 +422,8 @@ static thread_pool *initialise_threadpool() {
     pool = malloc(sizeof *pool);
     exit_if_null(pool);
 
-    /* Initialise thread pool queue */
-    pool->queue = queue_new();
+    /* Initialise thread pool task_queue */
+    pool->task_queue = queue_new();
 
     /* Initialise thread pool mutex */
     if (pthread_mutex_init(&pool->mutex, NULL)) {
@@ -443,13 +443,13 @@ static thread_pool *initialise_threadpool() {
     return pool;
 }
 
-/* Add client work to task queue */
+/* Add client work to task task_queue */
 static void add_client_work(thread_pool *pool, int *client) {
     /* Critical section */
     pthread_mutex_lock(&pool->mutex);
 
-    /* Add client to the queue */
-    queue_enqueue(pool->queue, client);
+    /* Add client to the task_queue */
+    queue_enqueue(pool->task_queue, client);
 
     pthread_mutex_unlock(&pool->mutex);
 

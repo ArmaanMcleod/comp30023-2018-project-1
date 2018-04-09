@@ -12,7 +12,8 @@ clean:
 scp:
 	scp *.c *.h Makefile ubuntu@115.146.93.189:comp30023/Assignment1
 
-
+kill:
+	pkill -f "server"
 
 
 
