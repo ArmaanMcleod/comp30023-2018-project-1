@@ -36,7 +36,7 @@ typedef struct {
 
 /* Thread pool information */
 typedef struct {
-    Queue *queue;
+    Queue *task_queue;
     pthread_t threads[MAX_THREADS];
     pthread_mutex_t mutex;
     pthread_cond_t cond;

@@ -83,7 +83,7 @@ static int setup_listening_socket(int portno, int max_clients) {
 }
 
 /* Used for checking null pointers */
-static void exit_if_null(void *ptr) {
+static void exit_if_null() {
     if (ptr == NULL) {
         perror("Error: unexpected null pointer");
         exit(EXIT_FAILURE);
@@ -400,7 +400,7 @@ static void cleanup_pool(thread_pool *pool) {
 }
 
 /* Create workers here */
-static void create_workers(thread_pool *pool, const size_t max_threads) {
+static void create_workers(thread_pool *pool, size_t max_threads) {
     /* Create threadpool worker threads */
     for (size_t i = 0; i < max_threads; i++) {
         if (pthread_create(&pool->threads[i], NULL, 
