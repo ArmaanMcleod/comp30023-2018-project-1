@@ -31,7 +31,7 @@ const file_properties file_map[] = {
 char *webroot = NULL;
 
 /* Sets up listening socket for server */
-static int setup_listening_socket(int portno, int max_clients) {
+int setup_listening_socket(int portno, int max_clients) {
     struct sockaddr_in serv_addr;
     int sock, setopt = 1;
 
@@ -82,39 +82,47 @@ static int setup_listening_socket(int portno, int max_clients) {
     return sock;
 }
 
-/* Used for checking null pointers */
-static void exit_if_null(void *ptr) {
-    if (ptr == NULL) {
-        perror("Error: unexpected null pointer");
-        exit(EXIT_FAILURE);
-    }
-
-    return;
-}
-
 /* Parses HTTP request header */
 /* Gets method, URI and version */
 /* Got inspiration to use strtok_r from Linux man page */
-static void parse_request(http_request *parameters, const char *response) {
+void parse_request(http_request *parameters, const char *response) {
     char *saveptr = NULL, *path = NULL, *copy = NULL;
 
     /* Copy over the response */
     copy = strdup(response);
-    exit_if_null(copy);
+    if (!copy) {
+        perror("Error: strdup() failed");
+        exit(EXIT_FAILURE);
+    }
 
     /* Extract just the first line */
     path = strtok_r(copy, "\n", &saveptr);
 
     /* Extract the method */
     path = strtok_r(copy, " ", &saveptr);
+
     parameters->method = strdup(path);
+    if (!parameters->method) {
+        perror("Error: strdup() failed");
+        exit(EXIT_FAILURE);
+    }
 
     /* Extract the URI */
     path = strtok_r(NULL, " ", &saveptr);
+
     parameters->URI = strdup(path);
+    if (!parameters->URI) {
+        perror("Error: strdup() failed");
+        exit(EXIT_FAILURE);
+    }
 
     /* Extract the http version */
     parameters->httpversion = strdup(saveptr);
+    if (!parameters->httpversion) {
+        perror("Error: strdup() failed");
+        exit(EXIT_FAILURE);
+    }
+
     parameters->httpversion[strlen(saveptr)-1] = '\0';
 
     free(copy);
@@ -143,7 +151,10 @@ static char *get_full_path(const char *webroot,
 
     /* Create an array big enough for the web root and path */
     full_path = malloc(strlen(webroot) + strlen(path) + 1);
-    exit_if_null(full_path);
+    if (!full_path) {
+        perror("Error: malloc() failed");
+        exit(EXIT_FAILURE);
+    }
 
     /* Combine web root and path */
     strcpy(full_path, webroot);
@@ -167,7 +178,10 @@ static char *get_full_path(const char *webroot,
 /* Write 200 response headers */
 static void write_headers(int client, const char *data, const char *defaults) {
     char *buffer = malloc(strlen(data) + strlen(defaults) + 1);
-    exit_if_null(buffer);
+    if (!buffer) {
+        perror("Error: malloc() failed");
+        exit(EXIT_FAILURE);
+    }
 
     /* Write into buffer */
     sprintf(buffer, defaults, data);
@@ -205,7 +219,10 @@ static void write_content_length(int client, size_t bytes_read) {
 
     /* Write content length */
     content_length = malloc(total_bytes + 1);
-    exit_if_null(content_length);
+    if (!content_length) {
+        perror("Error: malloc() failed");
+        exit(EXIT_FAILURE);
+    }
 
     /* copy bytes reead into buffer */
     snprintf(content_length, total_bytes + 1, "%zu", bytes_read);
@@ -225,7 +242,10 @@ static void read_write_file(int client, const char *path) {
 
     /* Open contents of file in binary mode*/
     requested_file = fopen(path, "rb");
-    exit_if_null(requested_file);
+    if (!requested_file) {
+        perror("Error: fopen() failed");
+        exit(EXIT_FAILURE);
+    }
 
     /* Get size of file */
     fseek(requested_file, 0, SEEK_END);
@@ -238,7 +258,10 @@ static void read_write_file(int client, const char *path) {
     /* Having a sized buffer could be dangerous here */
     buffer_size = (size_t)file_size;
     buffer = malloc(buffer_size + 1);
-    exit_if_null(buffer);
+    if (!buffer) {
+        perror("Error: malloc() failed");
+        exit(EXIT_FAILURE);
+    }
 
     /* Set everything to null terminating characters */
     /* Avoids having to null terminate the buffer later on */
@@ -279,7 +302,7 @@ static void construct_file_response(int client, const char *httpversion,
     requested_file_extension = strrchr(path, '.');
 
     /* If no extension exists, write appropriate response and exit */
-    if (requested_file_extension == NULL) {
+    if (!requested_file_extension) {
         write(client, not_supported, strlen(not_supported));
         return;
     }

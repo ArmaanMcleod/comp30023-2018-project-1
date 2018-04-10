@@ -38,4 +38,7 @@ typedef struct {
 
 extern const file_properties file_map[];
 
+int setup_listening_socket(int portno, int max_clients);
+
+
 #endif
