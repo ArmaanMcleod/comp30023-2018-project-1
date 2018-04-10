@@ -4,7 +4,7 @@
 #include "threadpool.h"
 
 /* Creates a new threadpool */
-thread_pool *initialise_threadpool(void(*work_func)(int)) {
+thread_pool *initialise_threadpool(workfunc_t work) {
     thread_pool *pool = NULL;
 
     /* Create thread pool */
@@ -32,7 +32,7 @@ thread_pool *initialise_threadpool(void(*work_func)(int)) {
     /* Create workers for thread pool */
     create_workers(pool, MAX_THREADS);
 
-    pool->work = work_func;
+    pool->work = work;
 
     return pool;
 }

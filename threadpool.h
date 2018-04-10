@@ -7,16 +7,18 @@
 
 #define MAX_THREADS 100
 
+typedef void (*workfunc_t)(int);
+
 /* Thread pool information */
 typedef struct {
     Queue *task_queue;
     pthread_t threads[MAX_THREADS];
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-    void (*work)(int);
+    workfunc_t work;
 } thread_pool;
 
-thread_pool *initialise_threadpool();
+thread_pool *initialise_threadpool(workfunc_t work);
 
 void create_workers(thread_pool *pool, size_t max_threads);
 

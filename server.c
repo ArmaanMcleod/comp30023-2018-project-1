@@ -195,7 +195,7 @@ static size_t get_length_bytes(size_t bytes) {
 }
 
 /* Write content_length for requested file */
-void write_content_length(int client, size_t bytes_read) {
+static void write_content_length(int client, size_t bytes_read) {
     char *content_length = NULL;
     size_t length_bytes, total_bytes;
 
@@ -303,7 +303,7 @@ static void construct_file_response(int client, const char *httpversion,
     return;
 }
 
-void process_client_request(int client) {
+static void process_client_request(int client) {
     char buffer[BUFFER_SIZE];
     char *path = NULL;
     http_request request;
