@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <signal.h>
 
 #include "server.h"
 #include "threadpool.h"
@@ -29,6 +30,12 @@ const file_properties file_map[] = {
 
 /* Web root gloabl variable */
 char *webroot = NULL;
+
+volatile sig_atomic_t running = false;
+
+void handle_sig_int() {
+    running = true;
+}
 
 /* Sets up listening socket for server */
 int setup_listening_socket(int portno, int max_clients) {
@@ -371,7 +378,7 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof client_addr;
     thread_pool *pool = NULL;
-
+    
     /* Check if enough command line arguements were given */
     if (argc != 3) {
         fprintf(stderr, "Usage: ./server [port number] [path to webroot]\n");
@@ -388,10 +395,9 @@ int main(int argc, char *argv[]) {
     pool = initialise_threadpool(process_client_request);
 
     /* Construct socket */
-    sockfd = setup_listening_socket(portno, MAX_CONNECTIONS);
+    sockfd = setup_listening_socket(portno, BACKLOG);
 
     /* loop that keeps fetching connections forever */
-    /* allows server to be a persistent connection */
     while (true) {
 
         /* Accept a connection - block until a connection is ready to -
