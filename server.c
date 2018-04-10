@@ -91,7 +91,7 @@ void parse_request(http_request *parameters, const char *response) {
     /* Copy over the response */
     copy = strdup(response);
     if (!copy) {
-        perror("Error: strdup() failed");
+        perror("Error: strdup() failed to copy response");
         exit(EXIT_FAILURE);
     }
 
@@ -103,7 +103,7 @@ void parse_request(http_request *parameters, const char *response) {
 
     parameters->method = strdup(path);
     if (!parameters->method) {
-        perror("Error: strdup() failed");
+        perror("Error: strdup() failed to copy path");
         exit(EXIT_FAILURE);
     }
 
@@ -112,14 +112,14 @@ void parse_request(http_request *parameters, const char *response) {
 
     parameters->URI = strdup(path);
     if (!parameters->URI) {
-        perror("Error: strdup() failed");
+        perror("Error: strdup() failed to copy URI");
         exit(EXIT_FAILURE);
     }
 
     /* Extract the http version */
     parameters->httpversion = strdup(saveptr);
     if (!parameters->httpversion) {
-        perror("Error: strdup() failed");
+        perror("Error: strdup() failed to copy http version");
         exit(EXIT_FAILURE);
     }
 
@@ -130,7 +130,7 @@ void parse_request(http_request *parameters, const char *response) {
 
 /* Checks if a given extension is valid */
 /* Verifies that it is either .js, .jpg, .css or .html */
-static bool supported_file(const char *extension) {
+bool supported_file(const char *extension) {
     for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
 
         /* If extension is the same here, return */
@@ -143,8 +143,7 @@ static bool supported_file(const char *extension) {
 }
 
 /* Gets full path of requested file */
-static char *get_full_path(const char *webroot, 
-                           const char *path, int *status) {
+char *get_full_path(const char *webroot, const char *path, int *status) {
 
     char *full_path = NULL, *extension = NULL;
     *status = NOT_FOUND;
@@ -152,7 +151,7 @@ static char *get_full_path(const char *webroot,
     /* Create an array big enough for the web root and path */
     full_path = malloc(strlen(webroot) + strlen(path) + 1);
     if (!full_path) {
-        perror("Error: malloc() failed");
+        perror("Error: malloc() failed allocate full path");
         exit(EXIT_FAILURE);
     }
 
@@ -176,10 +175,10 @@ static char *get_full_path(const char *webroot,
 }
 
 /* Write 200 response headers */
-static void write_headers(int client, const char *data, const char *defaults) {
+void write_headers(int client, const char *data, const char *defaults) {
     char *buffer = malloc(strlen(data) + strlen(defaults) + 1);
     if (!buffer) {
-        perror("Error: malloc() failed");
+        perror("Error: malloc() failed to allocate buffer");
         exit(EXIT_FAILURE);
     }
 
@@ -197,7 +196,7 @@ static void write_headers(int client, const char *data, const char *defaults) {
 }
 
 /* Calculates length of number */
-static size_t get_length_bytes(size_t bytes) {
+size_t get_length_bytes(size_t bytes) {
     size_t temp = bytes, count = 0;
 
     while (temp != 0) {
@@ -209,7 +208,7 @@ static size_t get_length_bytes(size_t bytes) {
 }
 
 /* Write content_length for requested file */
-static void write_content_length(int client, size_t bytes_read) {
+void write_content_length(int client, size_t bytes_read) {
     char *content_length = NULL;
     size_t length_bytes, total_bytes;
 
@@ -220,7 +219,7 @@ static void write_content_length(int client, size_t bytes_read) {
     /* Write content length */
     content_length = malloc(total_bytes + 1);
     if (!content_length) {
-        perror("Error: malloc() failed");
+        perror("Error: malloc() failed to allocate content legnth");
         exit(EXIT_FAILURE);
     }
 
@@ -235,7 +234,7 @@ static void write_content_length(int client, size_t bytes_read) {
 }
 
 /* Write file requested from 200 response */
-static void read_write_file(int client, const char *path) {
+void read_write_file(int client, const char *path) {
     FILE *requested_file = NULL;
     unsigned char *buffer = NULL;
     size_t  bytes_read, buffer_size;
@@ -243,7 +242,7 @@ static void read_write_file(int client, const char *path) {
     /* Open contents of file in binary mode*/
     requested_file = fopen(path, "rb");
     if (!requested_file) {
-        perror("Error: fopen() failed");
+        perror("Error: fopen() failed to open requested file");
         exit(EXIT_FAILURE);
     }
 
@@ -259,7 +258,7 @@ static void read_write_file(int client, const char *path) {
     buffer_size = (size_t)file_size;
     buffer = malloc(buffer_size + 1);
     if (!buffer) {
-        perror("Error: malloc() failed");
+        perror("Error: malloc() failed to allocate buffer");
         exit(EXIT_FAILURE);
     }
 
@@ -289,8 +288,8 @@ static void read_write_file(int client, const char *path) {
     return;
 }
 
-static void construct_file_response(int client, const char *httpversion, 
-                                    const char *path, const char *status) {
+void construct_file_response(int client, const char *httpversion, 
+                                         const char *path, const char *status) {
 
     char *requested_file_extension = NULL;
     bool found = false;
@@ -326,7 +325,7 @@ static void construct_file_response(int client, const char *httpversion,
     return;
 }
 
-static void process_client_request(int client) {
+void process_client_request(int client) {
     char buffer[BUFFER_SIZE];
     char *path = NULL;
     http_request request;

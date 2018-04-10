@@ -38,7 +38,16 @@ typedef struct {
 
 extern const file_properties file_map[];
 
+/* Function prototypes */
 int setup_listening_socket(int portno, int max_clients);
-
-
+void parse_request(http_request *parameters, const char *response);
+bool supported_file(const char *extension);
+char *get_full_path(const char *webroot, const char *path, int *status);
+void write_headers(int client, const char *data, const char *defaults);
+size_t get_length_bytes(size_t bytes);
+void write_content_length(int client, size_t bytes_read);
+void read_write_file(int client, const char *path);
+void process_client_request(int client);
+void construct_file_response(int client, const char *httpversion, 
+                             const char *path, const char *status);
 #endif

@@ -10,7 +10,7 @@ thread_pool *initialise_threadpool(workfunc_t work) {
     /* Create thread pool */
     pool = malloc(sizeof *pool);
     if (!pool) {
-        perror("Error: failed to create thread pool");
+        perror("Error: malloc() failed to create thread pool");
         exit(EXIT_FAILURE);
     }
 
