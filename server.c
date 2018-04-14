@@ -419,7 +419,7 @@ int main(int argc, char *argv[]) {
     sockfd = setup_listening_socket(portno, BACKLOG);
 
     /* loop that keeps fetching connections forever */
-    while (1) {
+    while (true) {
 
         /* Accept a connection - block until a connection is r./eady to -
            be accepted. Fetch new extension descriptor to communicate on. */
