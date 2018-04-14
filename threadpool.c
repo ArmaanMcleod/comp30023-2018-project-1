@@ -41,7 +41,7 @@ thread_pool *initialise_threadpool(workfunc_t work) {
 void create_workers(thread_pool *pool, size_t max_threads) {
     /* Create threadpool worker threads */
     for (size_t i = 0; i < max_threads; i++) {
-        if (pthread_create(&pool->threads[i], NULL, 
+        if (pthread_create(&pool->threads[i], NULL,
                            handle_client_request, pool)) {
 
             perror("Error: cannot create thread");
@@ -75,14 +75,13 @@ void *handle_client_request(void *args) {
     thread_pool *pool = args;
 
     while (true) {
-
         /* Critical section */
         pthread_mutex_lock(&pool->mutex);
 
         /* waiting for work to come up */
         while (queue_is_empty(pool->task_queue)) {
             pthread_cond_wait(&pool->cond, &pool->mutex);
-        } 
+        }
 
         /* deque first task */
         socket = queue_dequeue(pool->task_queue);
@@ -102,7 +101,6 @@ void *handle_client_request(void *args) {
 
 /* Clean up the thread pool */
 void cleanup_pool(thread_pool *pool) {
-
     /* Join the threads back up together */
     for (size_t i = 0; i < MAX_THREADS; i++) {
         pthread_join(pool->threads[i], NULL);

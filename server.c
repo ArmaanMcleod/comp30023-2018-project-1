@@ -1,3 +1,11 @@
+/* COMP30023 Computer Systems - Semester 1 2018
+ * Assignment 1 - HTTP multi-threaded Web server
+ * File: server.c
+ * Purpose: main server program
+ * Author: Armaan Dhaliwal-McLeod
+ */
+
+/* Libraries needed for module */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,12 +14,12 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <stdbool.h>
-#include <signal.h>
 
+/* Helper header files included */
 #include "server.h"
 #include "threadpool.h"
 
-/* Header constants */
+/* Header boilterplate strings */
 const char *found = "%s 200 OK\r\n";
 const char *content_header = "Content-Type: %s\r\n";
 const char *length_header = "Content-Length: %s\r\n\r\n";
@@ -21,26 +29,20 @@ const char *not_supported = "Content-Type: application/octet-stream\r\n";
 const char *no_content = "Content-Length: 0\r\n\r\n";
 
 /* Hardcoded mime types */
-const file_properties file_map[] = {
+const file_properties_t file_map[] = {
     {".html", "text/html"},
     {".jpg", "image/jpeg"},
     {".css", "text/css"},
     {".js", "text/javascript"}
 };
 
-/* Web root gloabl variable */
+/* Web root global variable */
 char *webroot = NULL;
-
-volatile sig_atomic_t running = false;
-
-void handle_sig_int() {
-    running = true;
-}
 
 /* Sets up listening socket for server */
 int setup_listening_socket(int portno, int max_clients) {
     struct sockaddr_in serv_addr;
-    int sock, setopt = 1;
+    int sock, reuse = 1;
 
      /* Setup TCP socket */
     sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -62,12 +64,12 @@ int setup_listening_socket(int portno, int max_clients) {
     /* Set socket option SO_REUSEADDR. If a recently closed server wants to -
        use this port, and some of the leftover chunks is lingering around -
        we can still use this port */
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, 
-                &setopt, sizeof setopt) == ERROR) { 
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
+                   &reuse, sizeof reuse) == ERROR) {
 
-        perror("Error: setting socket option for reusing address"); 
-        exit(EXIT_FAILURE); 
-    } 
+        perror("Error: setting socket option for reusing address");
+        exit(EXIT_FAILURE);
+    }
 
     /* Bind address to the socket */
     if (bind(sock, (struct sockaddr *)&serv_addr, sizeof serv_addr) == ERROR) {
@@ -78,7 +80,7 @@ int setup_listening_socket(int portno, int max_clients) {
     printf("Binding done.\n");
     printf("Listening on port: %d.\n", portno);
 
-    /* Listen on socket - means we're ready to accept connections - 
+    /* Listen on socket - means we're ready to accept connections -
        incoming connection requests will be queued */
     if (listen(sock, max_clients) == ERROR) {
         perror("Error: cannot listen on socket");
@@ -90,9 +92,8 @@ int setup_listening_socket(int portno, int max_clients) {
 }
 
 /* Parses HTTP request header */
-/* Gets method, URI and version */
-/* Got inspiration to use strtok_r from Linux man page */
-void parse_request(http_request *parameters, const char *response) {
+/* Gets method, URI and version and inserts them in struct */
+void parse_request(http_request_t *parameters, const char *response) {
     char *saveptr = NULL, *path = NULL, *copy = NULL;
 
     /* Copy over the response */
@@ -135,9 +136,11 @@ void parse_request(http_request *parameters, const char *response) {
     free(copy);
 }
 
-/* Checks if a given extension is valid */
+/* Checks if a given extension is served */
 /* Verifies that it is either .js, .jpg, .css or .html */
 bool supported_file(const char *extension) {
+
+    /* Go over the file types supported */
     for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
 
         /* If extension is the same here, return */
@@ -146,13 +149,16 @@ bool supported_file(const char *extension) {
         }
     }
 
+    /* Otherwise, no matching extension was found */
     return false;
 }
 
 /* Gets full path of requested file */
-char *get_full_path(const char *webroot, const char *path, int *status) {
-
+/* Return the absolute path */
+char *get_full_path(const char *path, int *status) {
     char *full_path = NULL, *extension = NULL;
+
+    /* Initialise reponse as not found */
     *status = NOT_FOUND;
 
     /* Create an array big enough for the web root and path */
@@ -166,43 +172,50 @@ char *get_full_path(const char *webroot, const char *path, int *status) {
     strcpy(full_path, webroot);
     strcat(full_path, path);
 
-    /* Gets the extension after the first dot character */
+    /* Get string after last occurence of the dot character */
     extension = strrchr(full_path, '.');
 
-    /* If full path is accessible and file is supported, update status to 200 */
-    if (extension != NULL && 
-        access(full_path, F_OK) == 0 && 
+    /* If extension is valid and path is accessible and file is supported */
+    if (extension &&
+        access(full_path, F_OK) == 0 &&
         supported_file(extension)) {
 
+        /* update status to 200 */
         *status = FOUND;
     }
 
-    /* Return the full path either way*/
+    /* Return the absolute path either way */
     return full_path;
 }
 
 /* Write 200 response headers */
 void write_headers(int client, const char *data, const char *defaults) {
-    char *buffer = malloc(strlen(data) + strlen(defaults) + 1);
+    char *buffer = NULL;
+
+    /* Allocate big enough buffer */
+    buffer = malloc(strlen(data) + strlen(defaults) + 1);
     if (!buffer) {
         perror("Error: malloc() failed to allocate buffer");
         exit(EXIT_FAILURE);
     }
 
-    /* Write into buffer */
+    /* Write  data into buffer */
     sprintf(buffer, defaults, data);
 
+    /* Write buffer to client socket */
     if (write(client, buffer, strlen(buffer)) == ERROR) {
         perror("Error: cannot write to socket");
         exit(EXIT_FAILURE);
     }
 
+    /* Done with the buffer */
     free(buffer);
 
     return;
 }
 
 /* Calculates length of number */
+/* Returns count */
 size_t get_length_bytes(size_t bytes) {
     size_t temp = bytes, count = 0;
 
@@ -214,7 +227,8 @@ size_t get_length_bytes(size_t bytes) {
     return count;
 }
 
-/* Write content_length for requested file */
+/* Write content length for requested file */
+/* Only applicable to 200 response headers */
 void write_content_length(int client, size_t bytes_read) {
     char *content_length = NULL;
     size_t length_bytes, total_bytes;
@@ -223,15 +237,17 @@ void write_content_length(int client, size_t bytes_read) {
     length_bytes = get_length_bytes(bytes_read);
     total_bytes = strlen(length_header) + length_bytes;
 
-    /* Write content length */
+    /* Allocate buffer for content length */
     content_length = malloc(total_bytes + 1);
     if (!content_length) {
         perror("Error: malloc() failed to allocate content legnth");
         exit(EXIT_FAILURE);
     }
 
-    /* copy bytes reead into buffer */
+    /* Copy bytes read into buffer */
     snprintf(content_length, total_bytes + 1, "%zu", bytes_read);
+
+    /* Write to client socket */
     write_headers(client, content_length, length_header);
 
     /* Done with this buffer */
@@ -245,8 +261,9 @@ void read_write_file(int client, const char *path) {
     FILE *requested_file = NULL;
     unsigned char *buffer = NULL;
     size_t  bytes_read, buffer_size;
+    long file_size;
 
-    /* Open contents of file in binary mode*/
+    /* Open contents of file in binary mode */
     requested_file = fopen(path, "rb");
     if (!requested_file) {
         perror("Error: fopen() failed to open requested file");
@@ -255,7 +272,7 @@ void read_write_file(int client, const char *path) {
 
     /* Get size of file */
     fseek(requested_file, 0, SEEK_END);
-    long file_size = ftell(requested_file);
+    file_size = ftell(requested_file);
     fseek(requested_file, 0, SEEK_SET);
 
     /* Allocate buffer big enough to hold file */
@@ -273,30 +290,33 @@ void read_write_file(int client, const char *path) {
     /* Avoids having to null terminate the buffer later on */
     memset(buffer, '\0', buffer_size + 1);
 
-    /* Write contents of file to client socket */
-    bytes_read = fread(buffer, 1, file_size, requested_file);
+    /* Write contents of file to buffer */
+    bytes_read = fread(buffer, sizeof *buffer, file_size, requested_file);
+
+    /* If the bytes is equal to the buffer size, fread was successful */
     if (bytes_read == buffer_size) {
 
         /* Write content length header */
         write_content_length(client, bytes_read);
-        
-        /* Write body of header to socket */
+
+        /* Write body of header to client socket */
         if (write(client, buffer, bytes_read) == ERROR) {
             perror("Error: cannot write to socket");
             exit(EXIT_FAILURE);
         }
     }
 
-    /* buffer has served its purpose, free it up */
+    /* Buffer has served its purpose, free it up */
     free(buffer);
 
+    /* Close the file, just in case */
     fclose(requested_file);
 
     return;
 }
 
-void construct_file_response(int client, const char *httpversion, 
-                                         const char *path, const char *status) {
+void construct_file_response(int client, const char *httpversion,
+                             const char *path, const char *status) {
 
     char *requested_file_extension = NULL;
     bool found = false;
@@ -311,6 +331,7 @@ void construct_file_response(int client, const char *httpversion,
     if (!requested_file_extension) {
         write(client, not_supported, strlen(not_supported));
         return;
+
     }
 
     /* otherwise, see if extension is served */
@@ -324,7 +345,7 @@ void construct_file_response(int client, const char *httpversion,
         }
     }
 
-    /* No extension was found, write appropriate response */
+    /* No extension was found, write not supported response */
     if (!found) {
         write(client, not_supported, strlen(not_supported));
     }
@@ -332,13 +353,15 @@ void construct_file_response(int client, const char *httpversion,
     return;
 }
 
+/* Process client request */
+/* Function which gets dispatched to worker threads */
 void process_client_request(int client) {
-    char buffer[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE] = {0};
     char *path = NULL;
-    http_request request;
+    http_request_t request;
     int status_code;
 
-    /* Read in request */
+    /* Read in request from client socket */
     if (read(client, buffer, BUFFER_SIZE - 1) == ERROR) {
         perror("Error: cannot read request");
         exit(EXIT_FAILURE);
@@ -349,7 +372,7 @@ void process_client_request(int client) {
 
     /* Get absolute path of requested file */
     /* Only needed for body of 200 response */
-    path = get_full_path(webroot, request.URI, &status_code);
+    path = get_full_path(request.URI, &status_code);
 
     /* Construct file responses, depending on status code */
     if (status_code == FOUND) {
@@ -360,7 +383,7 @@ void process_client_request(int client) {
         write(client, no_content, strlen(no_content));
     }
 
-    /* Free up all the pointers on the heap */
+    /* Free up all the pointers allocated */
     free(request.method);
     free(request.URI);
     free(request.httpversion);
@@ -378,7 +401,7 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof client_addr;
     thread_pool *pool = NULL;
-    
+
     /* Check if enough command line arguements were given */
     if (argc != 3) {
         fprintf(stderr, "Usage: ./server [port number] [path to webroot]\n");
@@ -398,9 +421,9 @@ int main(int argc, char *argv[]) {
     sockfd = setup_listening_socket(portno, BACKLOG);
 
     /* loop that keeps fetching connections forever */
-    while (true) {
+    while (1) {
 
-        /* Accept a connection - block until a connection is ready to -
+        /* Accept a connection - block until a connection is r./eady to -
            be accepted. Fetch new extension descriptor to communicate on. */
         client = accept(sockfd, (struct sockaddr *) &client_addr, &client_len);
         if (client == ERROR) {
@@ -410,11 +433,12 @@ int main(int argc, char *argv[]) {
 
         add_client_work(pool, &client);
     }
-
     /* Close up the server socket, just in case */
     close(sockfd);
 
-    /* Clean up the thread pool, just for good measure */
+    /* Clean up thread pool */
+    /* Since server gets killed, will never reach here */
+    /* Not a bad idea to do this anyways */
     cleanup_pool(pool);
 
     exit(EXIT_SUCCESS);
