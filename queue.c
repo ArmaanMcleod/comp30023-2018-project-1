@@ -1,7 +1,13 @@
+/* COMP30023 Computer Systems - Semester 1 2018
+ * Assignment 1 - HTTP multi-threaded Web server
+ * Author: Armaan Dhaliwal-McLeod
+ * File: queue.c
+ * Purpose: FIFO queue module. Queue functions implemented here.
+ */
+
 #include <stdlib.h>
 #include <assert.h>
 
-#include "list.h"
 #include "queue.h"
 
 /* Create new FIFO queue */

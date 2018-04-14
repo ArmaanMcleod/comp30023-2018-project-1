@@ -1,9 +1,16 @@
+/* COMP30023 Computer Systems - Semester 1 2018
+ * Assignment 1 - HTTP multi-threaded Web server
+ * Author: Armaan Dhaliwal-McLeod
+ * File: threadpool.c
+ * Purpose: thread pool module. implements thread pool functions *.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "threadpool.h"
 
-/* Creates a new threadpool */
+/* Create a new threadpool */
 thread_pool *initialise_threadpool(workfunc_t work) {
     thread_pool *pool = NULL;
 
@@ -14,17 +21,17 @@ thread_pool *initialise_threadpool(workfunc_t work) {
         exit(EXIT_FAILURE);
     }
 
-    /* Initialise thread pool task_queue */
+    /* Initialise thread pool task queue */
     pool->task_queue = queue_new();
 
     /* Initialise thread pool mutex */
-    if (pthread_mutex_init(&pool->mutex, NULL)) {
+    if (pthread_mutex_init(&(pool->mutex), NULL)) {
         perror("Error: mutex init failed");
         exit(EXIT_FAILURE);
     }
 
     /* Initialise thread pool condition */
-    if (pthread_cond_init(&pool->cond, NULL)) {
+    if (pthread_cond_init(&(pool->cond), NULL)) {
         perror("Error: cond init failed");
         exit(EXIT_FAILURE);
     }
@@ -32,6 +39,7 @@ thread_pool *initialise_threadpool(workfunc_t work) {
     /* Create workers for thread pool */
     create_workers(pool, MAX_THREADS);
 
+    /* Add work function */
     pool->work = work;
 
     return pool;
@@ -41,7 +49,7 @@ thread_pool *initialise_threadpool(workfunc_t work) {
 void create_workers(thread_pool *pool, size_t max_threads) {
     /* Create threadpool worker threads */
     for (size_t i = 0; i < max_threads; i++) {
-        if (pthread_create(&pool->threads[i], NULL,
+        if (pthread_create(&(pool->threads[i]), NULL,
                            handle_client_request, pool)) {
 
             perror("Error: cannot create thread");
@@ -52,18 +60,18 @@ void create_workers(thread_pool *pool, size_t max_threads) {
     return;
 }
 
-/* Add client work to task task_queue */
+/* Add client work to task task queue */
 void add_client_work(thread_pool *pool, int *client) {
     /* Critical section */
-    pthread_mutex_lock(&pool->mutex);
+    pthread_mutex_lock(&(pool->mutex));
 
     /* Add client to the task_queue */
     queue_enqueue(pool->task_queue, client);
 
-    pthread_mutex_unlock(&pool->mutex);
+    pthread_mutex_unlock(&(pool->mutex));
 
     /* Send a signal to worker threads that a client task has been added */
-    pthread_cond_signal(&pool->cond);
+    pthread_cond_signal(&(pool->cond));
 }
 
 /* Processes client request for a file */
@@ -76,17 +84,17 @@ void *handle_client_request(void *args) {
 
     while (true) {
         /* Critical section */
-        pthread_mutex_lock(&pool->mutex);
+        pthread_mutex_lock(&(pool->mutex));
 
         /* waiting for work to come up */
         while (queue_is_empty(pool->task_queue)) {
-            pthread_cond_wait(&pool->cond, &pool->mutex);
+            pthread_cond_wait(&(pool->cond), &(pool->mutex));
         }
 
         /* deque first task */
         socket = queue_dequeue(pool->task_queue);
 
-        pthread_mutex_unlock(&pool->mutex);
+        pthread_mutex_unlock(&(pool->mutex));
 
         /* Get client socket id */
         client = *(int *)socket;
@@ -96,6 +104,7 @@ void *handle_client_request(void *args) {
 
     }
 
+    /* Exit the thread */
     pthread_exit(NULL);
 }
 
@@ -110,8 +119,8 @@ void cleanup_pool(thread_pool *pool) {
     queue_free(pool->task_queue);
 
     /* Destroy the mutex and conditions */
-    pthread_mutex_destroy(&pool->mutex);
-    pthread_cond_destroy(&pool->cond);
+    pthread_mutex_destroy(&(pool->mutex));
+    pthread_cond_destroy(&(pool->cond));
 
     /* Free up the thread pool */
     free(pool);

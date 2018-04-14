@@ -1,3 +1,11 @@
+/* COMP30023 Computer Systems - Semester 1 2018
+ * Assignment 1 - HTTP multi-threaded Web server
+ * Author: Armaan Dhaliwal-McLeod
+ * File: queue.h
+ * Purpose: header file for queue module. Provides queue functions and -
+ *          defintions here
+ */
+
 #ifndef QUEUE_H
 #define QUEUE_H
 

@@ -1,14 +1,23 @@
+/* COMP30023 Computer Systems - Semester 1 2018
+ * Assignment 1 - HTTP multi-threaded Web server
+ * Author: Armaan Dhaliwal-McLeod
+ * File: list.c
+ * Purpose: list module code. Logic for implementing a singly linked-list -
+            is implemented here.
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
 #include "list.h"
 
-/* Pointer to new linked list */
+/* Create a new linked list and return its pointer */
 List *list_new() {
     List *list = malloc(sizeof *list);
     assert(list != NULL);
 
+    /* Initialise linked list contents */
     list->head = NULL;
     list->tail = NULL;
     list->size = 0;
@@ -80,7 +89,7 @@ void *list_remove_start(List *list) {
     list->head = list->head->next;
 
     /* If this was the last node in the list */
-    /* The last also needs to be cleared */
+    /* The tail also needs to be cleared */
     if (list->size == 1) {
         list->tail = NULL;
     }
@@ -94,7 +103,7 @@ void *list_remove_start(List *list) {
     return data;
 }
 
-/* Remove node from the tail of the list */ 
+/* Remove node from the tail of the list */
 void *list_remove_end(List *list) {
     assert(list != NULL && list->size > 0);
 
@@ -152,6 +161,7 @@ void list_free(List *list) {
     Node *curr = list->head;
     Node *prev = NULL;
 
+    /* Go through and free each node */
     while (curr != NULL) {
         prev = curr;
         free(prev->data);
@@ -167,8 +177,3 @@ bool list_is_empty(List *list) {
     assert(list != NULL);
     return (list->size == 0);
 }
-
-
-
-
-

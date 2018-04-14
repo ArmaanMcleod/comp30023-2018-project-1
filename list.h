@@ -1,3 +1,11 @@
+/* COMP30023 Computer Systems - Semester 1 2018
+ * Assignment 1 - HTTP multi-threaded Web server
+ * Author: Armaan Dhaliwal-McLeod
+ * File: list.h
+ * Purpose: header file for list module. List defintions and declarations
+            defined here
+ */
+
 #ifndef LIST_H
 #define LIST_H
 

@@ -1,8 +1,9 @@
 /* COMP30023 Computer Systems - Semester 1 2018
  * Assignment 1 - HTTP multi-threaded Web server
- * File: server.h
- * Purpose: header file for server module
  * Author: Armaan Dhaliwal-McLeod
+ * File: server.h
+ * Purpose: header file for server module. Provides declarations and -
+ *          defintions for server code
  */
 
 #ifndef SERVER_H

@@ -1,11 +1,10 @@
 /* COMP30023 Computer Systems - Semester 1 2018
  * Assignment 1 - HTTP multi-threaded Web server
  * File: server.c
- * Purpose: main server program
+ * Purpose: main server program. Server code logic implemented here
  * Author: Armaan Dhaliwal-McLeod
  */
 
-/* Libraries needed for module */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -139,7 +138,6 @@ void parse_request(http_request_t *parameters, const char *response) {
 /* Checks if a given extension is served */
 /* Verifies that it is either .js, .jpg, .css or .html */
 bool supported_file(const char *extension) {
-
     /* Go over the file types supported */
     for (size_t i = 0; i < ARRAY_LENGTH(file_map); i++) {
 
