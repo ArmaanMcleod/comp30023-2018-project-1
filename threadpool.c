@@ -85,7 +85,6 @@ void *handle_client_request(void *args) {
     while (true) {
         /* Critical section */
         pthread_mutex_lock(&(pool->mutex));
-
         /* waiting for work to come up */
         while (queue_is_empty(pool->task_queue)) {
             pthread_cond_wait(&(pool->cond), &(pool->mutex));
@@ -104,14 +103,20 @@ void *handle_client_request(void *args) {
 
     }
 
-    /* Exit the thread */
-    pthread_exit(NULL);
+    return NULL;
+
 }
 
 /* Clean up the thread pool */
 void cleanup_pool(thread_pool *pool) {
-    /* Join the threads back up together */
+
+    /* First unblock on threads */
+    pthread_cond_broadcast(&(pool->cond));
+
+    /* Free threads */
     for (size_t i = 0; i < MAX_THREADS; i++) {
+        pthread_mutex_unlock(&(pool->mutex));
+        pthread_cancel(pool->threads[i]);
         pthread_join(pool->threads[i], NULL);
     }
 
