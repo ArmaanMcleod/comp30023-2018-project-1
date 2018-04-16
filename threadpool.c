@@ -109,7 +109,6 @@ void *handle_client_request(void *args) {
 
 /* Clean up the thread pool */
 void cleanup_pool(thread_pool *pool) {
-
     /* First unblock on threads */
     pthread_cond_broadcast(&(pool->cond));
 

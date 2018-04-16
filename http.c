@@ -28,7 +28,8 @@ const file_properties_t file_map[] = {
     {".html", "text/html"},
     {".jpg", "image/jpeg"},
     {".css", "text/css"},
-    {".js", "text/javascript"}
+    {".js", "text/javascript"},
+    {".txt", "text/plain"}
 };
 
  /* Parses HTTP request header */

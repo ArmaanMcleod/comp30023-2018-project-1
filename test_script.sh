@@ -15,7 +15,7 @@ else
     echo "Error starting server, check test_log.txt"
     exit 1
 fi
-base_url="http://127.0.0.1:$2/" 
+base_url="http://127.0.0.1:$2/"
 sub_url="${base_url}directory/"
 
 web_root="./test/"
@@ -38,26 +38,26 @@ do_http_get () {
     test_mime=$6
 
     temp_file="$(mktemp /tmp/myscript.XXXXXX)"
-    
+
     temp_header="$(mktemp /tmp/myscript.XXXXXX)"
-    
+
     header_pass=false
     get_pass=false
     mime_pass=false
     wget -q --server-response -O $temp_file $test_url 2> $temp_header
     if [ "$test_resp" == "404" ];then
-        if grep -Eiq 'HTTP/1.0 404|HTTP/1.1 404' $temp_header 
+        if grep -Eiq 'HTTP/1.0 404|HTTP/1.1 404' $temp_header
         then
             header_pass=true
         fi
         get_pass=true
         mime_pass=true
     else
-        if grep -Eiq 'HTTP/1.0 200 OK$|HTTP/1.1 200 OK$' $temp_header 
+        if grep -Eiq 'HTTP/1.0 200 OK$|HTTP/1.1 200 OK$' $temp_header
         then
             header_pass=true
         fi
-        if grep -Eiq "$test_mime" $temp_header 
+        if grep -Eiq "$test_mime" $temp_header
         then
             mime_pass=true
         fi
@@ -72,14 +72,14 @@ do_http_get () {
     fi
     rm -f "$temp_file"
     rm -f "$temp_header"
-    
+
     if $header_pass && $get_pass && $mime_pass;
     then
         echo "Test $test_num: $test_desc: PASS"
     else
         echo "Test $test_num: $test_desc: FAIL: header:$header_pass, get:$get_pass, mime:$mime_pass"
     fi
-} 
+}
 
 do_http_get 1 "GET HTML file in root" $base_url$index_file $web_root$index_file "200" "$mime_html"
 do_http_get 2 "GET Non-existent HTML file in root" $base_url"junk.html" $web_root$index_file "404"

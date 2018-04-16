@@ -1,0 +1,6 @@
+Server ended
+Connection closed: Interrupted system call
+Listening socket created.
+Binding done.
+Listening on port: 8000.
+Listening for incoming connections...
