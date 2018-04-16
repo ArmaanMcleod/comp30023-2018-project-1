@@ -174,12 +174,12 @@ int main(int argc, char *argv[]) {
     sigaction(SIGQUIT, &action, NULL);
 
     /* loop that keeps fetching connections forever until server dies */
-    while (true) {
+    while (!running) {
 
         /* Accept a connection - block until a connection is r./eady to -
            be accepted. Fetch new extension descriptor to communicate on. */
         client = accept(sockfd, (struct sockaddr *) &client_addr, &client_len);
-        if (client == ERROR && errno == EINTR && running) {
+        if (client == ERROR && errno == EINTR) {
             perror("Connection closed");
             break;
         }
