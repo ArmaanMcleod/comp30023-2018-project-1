@@ -25,9 +25,11 @@
 #define BUFFER_SIZE 1024
 
 /* Web root global variable */
+/* Dont see an issue with this since it is used for entire server lifetime */
 char *webroot = NULL;
 
 /* signal flag for when server is closed */
+/* Needs to be global since the it checks server signals */
 volatile sig_atomic_t running = false;
 
 /* Sets up listening socket for server */
@@ -166,12 +168,24 @@ int main(int argc, char *argv[]) {
 
     /* Setup signal handler */
     action.sa_handler = signal_handler;
-    sigemptyset(&action.sa_mask);
+
+    if (sigemptyset(&action.sa_mask) == ERROR) {
+        perror("Error: sigsemptyset() failed");
+        exit(EXIT_FAILURE);
+    }
+
     action.sa_flags = 0;
 
     /* Handle signals*/
-    sigaction(SIGINT, &action, NULL);
-    sigaction(SIGTERM, &action, NULL);
+    if (sigaction(SIGINT, &action, NULL) == ERROR) {
+        perror("Error: SIGINT sigaction() failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if (sigaction(SIGTERM, &action, NULL) == ERROR) {
+        perror("Error: SIGTERM sigaction() failed");
+        exit(EXIT_FAILURE);
+    }
 
     /* loop that keeps fetching connections forever until server dies */
     while (!running) {

@@ -1,4 +1,4 @@
-Server ended
+Server terminated
 Connection closed: Interrupted system call
 Listening socket created.
 Binding done.

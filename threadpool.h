@@ -25,6 +25,7 @@ typedef struct {
 
     /* Worker threads */
     pthread_t threads[MAX_THREADS];
+    size_t num_threads;
 
     /* Mutex variables and conditions */
     pthread_mutex_t mutex;
@@ -38,7 +39,7 @@ typedef struct {
 thread_pool *initialise_threadpool(workfunc_t work);
 
 /* Create worker threads */
-void create_workers(thread_pool *pool, size_t max_threads);
+void create_workers(thread_pool *pool);
 
 /* Add client to stack */
 void add_client_work(thread_pool *pool, int *client);

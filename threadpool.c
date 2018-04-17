@@ -36,8 +36,10 @@ thread_pool *initialise_threadpool(workfunc_t work) {
         exit(EXIT_FAILURE);
     }
 
+    pool->num_threads = MAX_THREADS;
+
     /* Create workers for thread pool */
-    create_workers(pool, MAX_THREADS);
+    create_workers(pool);
 
     /* Add work function */
     pool->work = work;
@@ -46,9 +48,9 @@ thread_pool *initialise_threadpool(workfunc_t work) {
 }
 
 /* Create workers here */
-void create_workers(thread_pool *pool, size_t max_threads) {
+void create_workers(thread_pool *pool) {
     /* Create threadpool worker threads */
-    for (size_t i = 0; i < max_threads; i++) {
+    for (size_t i = 0; i < pool->num_threads; i++) {
         if (pthread_create(&(pool->threads[i]), NULL,
                            handle_client_request, pool)) {
 
@@ -103,8 +105,7 @@ void *handle_client_request(void *args) {
 
     }
 
-    return NULL;
-
+    pthread_exit(NULL);
 }
 
 /* Clean up the thread pool */
@@ -113,7 +114,7 @@ void cleanup_pool(thread_pool *pool) {
     pthread_cond_broadcast(&(pool->cond));
 
     /* Free threads */
-    for (size_t i = 0; i < MAX_THREADS; i++) {
+    for (size_t i = 0; i < pool->num_threads; i++) {
         pthread_mutex_unlock(&(pool->mutex));
         pthread_cancel(pool->threads[i]);
         pthread_join(pool->threads[i], NULL);

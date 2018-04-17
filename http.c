@@ -15,13 +15,13 @@
  #include "http.h"
 
  /* Header boilterplate strings */
-const char *found = "%s 200 OK\r\n";
-const char *content_header = "Content-Type: %s\r\n";
-const char *length_header = "Content-Length: %s\r\n\r\n";
+const char found[] = "%s 200 OK\r\n";
+const char content_header[] = "Content-Type: %s\r\n";
+const char length_header[] = "Content-Length: %s\r\n\r\n";
 
-const char *not_found = "%s 404 Not Found\r\n";
-const char *not_supported = "Content-Type: application/octet-stream\r\n";
-const char *no_content = "Content-Length: 0\r\n\r\n";
+const char not_found[] = "%s 404 Not Found\r\n";
+const char not_supported[] = "Content-Type: application/octet-stream\r\n";
+const char no_content[] = "Content-Length: 0\r\n\r\n";
 
 /* Hardcoded mime types */
 const file_properties_t file_map[] = {

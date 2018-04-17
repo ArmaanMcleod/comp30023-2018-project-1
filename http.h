@@ -18,12 +18,12 @@
 #define ARRAY_LENGTH(x) (sizeof x / sizeof *x)
 
 /* Header constants, used as boilerplates for http responses */
-extern const char *found;
-extern const char *not_found;
-extern const char *content_header;
-extern const char *length_header;
-extern const char *not_supported;
-extern const char *no_content;
+extern const char found[];
+extern const char not_found[];
+extern const char content_header[];
+extern const char length_header[];
+extern const char not_supported[];
+extern const char no_content[];
 
 /* HTTP request information struct */
 typedef struct {
