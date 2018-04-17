@@ -24,23 +24,11 @@
 #define BACKLOG 100
 #define BUFFER_SIZE 1024
 
-const char *html = "404 Not Found";
-
 /* Web root global variable */
 char *webroot = NULL;
 
 /* signal flag for when server is closed */
 volatile sig_atomic_t running = false;
-
-/* signal handling function */
-/* Updates running variables when SIGINT, SIGTERM or SIGUIT is triggered */
-static void signal_handler(int signum) {
-    if (signum == SIGINT || signum == SIGTERM || signum == SIGQUIT) {
-        fprintf(stderr, "Server ended\n");
-        running = true;
-    }
-    return;
-}
 
 /* Sets up listening socket for server */
 static int setup_listening_socket(int portno, int max_clients) {
@@ -122,7 +110,6 @@ static void process_client_request(int client) {
     } else {
         construct_file_response(client, request.httpversion, path, not_found);
         write(client, no_content, strlen(no_content));
-        write(client, html, strlen(html));
     }
 
     /* Free up all the pointers allocated */
@@ -134,6 +121,20 @@ static void process_client_request(int client) {
 
     /* Close the client socket */
     close(client);
+
+    return;
+}
+
+/* signal handling function */
+/* Updates running variables when SIGINT, SIGTERM or SIGUIT is triggered */
+static void signal_handler(int signum) {
+    running = true;
+
+    if (signum == SIGINT) {
+        fprintf(stderr, "Server Interrupted\n");
+    } else if (signum == SIGTERM) {
+        fprintf(stderr, "Server terminated\n");
+    }
 
     return;
 }
@@ -168,10 +169,9 @@ int main(int argc, char *argv[]) {
     sigemptyset(&action.sa_mask);
     action.sa_flags = 0;
 
-    /* Check if ctrl-C, ctrl-\ or kill signal is triggered */
+    /* Handle signals*/
     sigaction(SIGINT, &action, NULL);
     sigaction(SIGTERM, &action, NULL);
-    sigaction(SIGQUIT, &action, NULL);
 
     /* loop that keeps fetching connections forever until server dies */
     while (!running) {
@@ -185,7 +185,6 @@ int main(int argc, char *argv[]) {
         }
 
         add_client_work(pool, &client);
-
     }
 
     /* Close up the server socket, just in case */
