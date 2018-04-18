@@ -3,7 +3,9 @@
  * Author: Armaan Dhaliwal-McLeod
  * File: list.c
  * Purpose: list module code. Logic for implementing a singly linked-list -
-            is implemented here.
+   is implemented here.
+ * Note: This code was taken from Assignment 1 COMP20007 Design of Algorithms,
+   which was based of Head Tutor Matt Farrugia's sample list.c implementation.
  */
 
 #include <stdlib.h>

@@ -24,6 +24,7 @@ const char not_supported[] = "Content-Type: application/octet-stream\r\n";
 const char no_content[] = "Content-Length: 0\r\n\r\n";
 
 /* Hardcoded mime types */
+/* Added .txt for easy creation of big files */
 const file_properties_t file_map[] = {
     {".html", "text/html"},
     {".jpg", "image/jpeg"},
@@ -231,10 +232,7 @@ const file_properties_t file_map[] = {
      memset(buffer, '\0', buffer_size + 1);
 
      /* Write contents of file to buffer */
-     bytes_read = fread(buffer, sizeof *buffer, file_size, requested_file);
-
-     /* If the bytes is equal to the buffer size, fread was successful */
-     if (bytes_read == buffer_size) {
+     while ((bytes_read = fread(buffer, 1, file_size, requested_file)) > 0) {
 
          /* Write content length header */
          write_content_length(client, bytes_read);

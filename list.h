@@ -4,6 +4,8 @@
  * File: list.h
  * Purpose: header file for list module. List defintions and declarations
             defined here
+ * Note: This code was taken from Assignment 1 COMP20007 Design of Algorithms,
+   which was based of Head Tutor Matt Farrugia's sample list.h implementation.
  */
 
 #ifndef LIST_H

@@ -187,6 +187,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+
     /* loop that keeps fetching connections forever until server dies */
     while (!running) {
 
@@ -198,6 +199,7 @@ int main(int argc, char *argv[]) {
             break;
         }
 
+        /* process client work */
         add_client_work(pool, &client);
     }
 
