@@ -79,7 +79,7 @@ static int setup_listening_socket(int portno, int max_clients) {
         perror("Error: cannot listen on socket");
         exit(EXIT_FAILURE);
     }
-    printf("Listening for incoming connections...\n");
+    printf("Waiting for incoming connections...\n");
 
     return sock;
 }
@@ -176,7 +176,9 @@ int main(int argc, char *argv[]) {
 
     action.sa_flags = 0;
 
-    /* Handle signals*/
+    /* Handle ctrl-C and ctrl-\ signals*/
+    /* Allows program to have no memory leaks if either these signals are -
+       triggered */
     if (sigaction(SIGINT, &action, NULL) == ERROR) {
         perror("Error: SIGINT sigaction() failed");
         exit(EXIT_FAILURE);
@@ -191,7 +193,7 @@ int main(int argc, char *argv[]) {
     /* loop that keeps fetching connections forever until server dies */
     while (!running) {
 
-        /* Accept a connection - block until a connection is r./eady to -
+        /* Accept a connection - block until a connection is ready to -
            be accepted. Fetch new extension descriptor to communicate on. */
         client = accept(sockfd, (struct sockaddr *) &client_addr, &client_len);
         if (client == ERROR && errno == EINTR) {

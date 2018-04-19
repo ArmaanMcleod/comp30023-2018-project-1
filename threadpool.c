@@ -2,7 +2,7 @@
  * Assignment 1 - HTTP multi-threaded Web server
  * Author: Armaan Dhaliwal-McLeod
  * File: threadpool.c
- * Purpose: thread pool module. implements thread pool functions *.
+ * Purpose: thread pool module. Implements thread pool functions.
  */
 
 #include <stdio.h>
@@ -87,6 +87,7 @@ void *handle_client_request(void *args) {
     while (true) {
         /* Critical section */
         pthread_mutex_lock(&(pool->mutex));
+
         /* waiting for work to come up */
         while (queue_is_empty(pool->task_queue)) {
             pthread_cond_wait(&(pool->cond), &(pool->mutex));

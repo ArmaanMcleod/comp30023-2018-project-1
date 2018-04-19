@@ -13,6 +13,7 @@
 
 #include "queue.h"
 
+/* Maxiumum number of threads defined here */
 #define MAX_THREADS 100
 
 /* Function pointer used to reference process work function in server */

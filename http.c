@@ -14,19 +14,19 @@
 
  #include "http.h"
 
- /* Header boilterplate strings */
+ /* 200 Header boilterplate strings */
 const char found[] = "HTTP/1.0 200 OK\r\n";
 const char content_header[] = "Content-Type: %s\r\n";
 const char length_header[] = "Content-Length: %s\r\n\r\n";
 
-/* Header responses strings */
+/* 404 Header responses strings */
 /* Could combine these together, but more easier to keep them seperated */
 const char not_found[] = "HTTP/1.0 404 Not Found\r\n";
 const char not_supported[] = "Content-Type: application/octet-stream\r\n";
 const char no_content[] = "Content-Length: 0\r\n\r\n";
 
 /* Hardcoded mime types */
-/* Added .txt for easy creation of big files */
+/* Added .txt for easy creation and testing of big files */
 const file_properties_t file_map[] = {
     {".html", "text/html"},
     {".jpg", "image/jpeg"},
@@ -261,7 +261,6 @@ const file_properties_t file_map[] = {
 
  void construct_file_response(int client, const char *path,
                                           const char *status) {
-
      char *requested_file_extension = NULL;
      bool found = false;
 
