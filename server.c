@@ -107,10 +107,10 @@ static void process_client_request(int client) {
 
     /* Construct file responses, depending on status code */
     if (status_code == FOUND) {
-        construct_file_response(client, request.httpversion, path, found);
+        construct_file_response(client, path, found);
         read_write_file(client, path);
     } else {
-        construct_file_response(client, request.httpversion, path, not_found);
+        construct_file_response(client, path, not_found);
         write(client, no_content, strlen(no_content));
     }
 

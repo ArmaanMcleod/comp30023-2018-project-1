@@ -44,7 +44,6 @@ extern const file_properties_t file_map[];
 void parse_request(http_request_t *parameters, const char *response);
 char *get_full_path(const char *path, const char *webroot, int *status);
 void read_write_file(int client, const char *path);
-void construct_file_response(int client, const char *httpversion,
-                             const char *path, const char *status);
+void construct_file_response(int client, const char *path, const char *status);
 
 #endif

@@ -3,7 +3,7 @@
  * Author: Armaan Dhaliwal-McLeod
  * File: http.c
  * Purpose: http handling module. Implements http handling of requests and
-            responses
+   responses
  */
 
  #include <stdio.h>
@@ -15,11 +15,13 @@
  #include "http.h"
 
  /* Header boilterplate strings */
-const char found[] = "%s 200 OK\r\n";
+const char found[] = "HTTP/1.0 200 OK\r\n";
 const char content_header[] = "Content-Type: %s\r\n";
 const char length_header[] = "Content-Length: %s\r\n\r\n";
 
-const char not_found[] = "%s 404 Not Found\r\n";
+/* Header responses strings */
+/* Could combine these together, but more easier to keep them seperated */
+const char not_found[] = "HTTP/1.0 404 Not Found\r\n";
 const char not_supported[] = "Content-Type: application/octet-stream\r\n";
 const char no_content[] = "Content-Length: 0\r\n\r\n";
 
@@ -51,6 +53,8 @@ const file_properties_t file_map[] = {
      /* Extract the method */
      path = strtok_r(copy, " ", &saveptr);
 
+     /* Extract this just in case I want handle multiple methods-
+        in the future. */
      parameters->method = strdup(path);
      if (!parameters->method) {
          perror("Error: strdup() failed to copy path");
@@ -67,6 +71,7 @@ const file_properties_t file_map[] = {
      }
 
      /* Extract the http version */
+     /* Not needed but extracted it anyways */
      parameters->httpversion = strdup(saveptr);
      if (!parameters->httpversion) {
          perror("Error: strdup() failed to copy http version");
@@ -130,7 +135,8 @@ const file_properties_t file_map[] = {
  }
 
  /* Write 200 response headers */
- static void write_headers(int client, const char *data, const char *defaults) {
+ static void write_headers(int client, const char *data,
+                                       const char *defaults) {
      char *buffer = NULL;
 
      /* Allocate big enough buffer */
@@ -253,14 +259,14 @@ const file_properties_t file_map[] = {
      return;
  }
 
- void construct_file_response(int client, const char *httpversion,
-                              const char *path, const char *status) {
+ void construct_file_response(int client, const char *path,
+                                          const char *status) {
 
      char *requested_file_extension = NULL;
      bool found = false;
 
      /* Write the status header */
-     write_headers(client, httpversion, status);
+     write(client, status, strlen(status));
 
      /* Get the file extension */
      requested_file_extension = strrchr(path, '.');
