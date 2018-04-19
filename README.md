@@ -1,5 +1,5 @@
 # COMP30023 Assignment 1
-This repository contains Assignment 1 for COMP30023 Computer Systems Semester 1 2018. The aim of this project was to create a multi-threaded HTTP web server that can serve .js, .css, .html and .jpg files. A threadpool approach was used to handle multithreading.
+This repository contains Assignment 1 for COMP30023 Computer Systems Semester 1 2018. The aim of this project was to create a multi-threaded HTTP web server that can serve .js, .css, .html and .jpg files. A worker threadpool approach was used to handle multithreading. 
 
 ## Files
 * **test_script.sh** shell script that runs wget, grep, and diff to check HTTP responses to test HTTP GET request.
