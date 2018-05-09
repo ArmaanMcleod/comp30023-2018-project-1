@@ -27,3 +27,5 @@ Make sure you compile the server with either *make* or *make server*, then run:
 For example:
 
 ./server 8000 /home/ubuntu/website
+
+Feel free to try it out.
