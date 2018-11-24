@@ -1,4 +1,7 @@
 # COMP30023 Assignment 1
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 This repository contains Assignment 1 for COMP30023 Computer Systems Semester 1 2018. The aim of this project was to create a multi-threaded HTTP web server that can serve .js, .css, .html and .jpg files. A worker threadpool approach was used to handle multithreading. 
 
 ## Files
